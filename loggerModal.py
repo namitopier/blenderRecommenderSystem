@@ -1,4 +1,3 @@
-
 bl_info = {
     "name": "Blender Logger",
     "author": "Pier Luigi Nakai Ricchetti",
@@ -97,11 +96,11 @@ def renameOp(operator, compare = False):
     currentObjects = list(currentObjsDict.keys())
     oldObjects = list(getObjectsOnCache().keys())
 
-    if (compare):
-        if(currentObjects == oldObjects): # If the same, no object has been renamed
-            return True
+    # if (compare):
+    #     if(currentObjects == oldObjects): # If the same, no object has been renamed
+    #         return True
         
-        return False
+    #     return False
     
     # Get the object/s that have been renamed
     set1 = set(currentObjects)
@@ -115,42 +114,42 @@ def renameOp(operator, compare = False):
 def addModifierOp(operator, compare = False):
 
     currentModifiers = getAllModifiers()
-    oldModifiers = getModifiersOnCache()
+    saveModifiersOnCache(currentModifiers)
 
-    if (compare):
-        if(currentModifiers == oldModifiers): # If the same, no modifier was added
-            return True
+    # if (compare):
+    #     if(currentModifiers == oldModifiers): # If the same, no modifier was added
+    #         return True
         
-        saveModifiersOnCache(currentModifiers)
-        return False
+    #     saveModifiersOnCache(currentModifiers)
+    #     return False
    
     return [operator.name, operator.properties.type, bpy.context.active_object.name]
 
 def removeModifierOp(operator, compare = False):
 
     currentModifiers = getAllModifiers()
-    oldModifiers = getModifiersOnCache()
+    saveModifiersOnCache(currentModifiers)
 
-    if (compare):
-        if(currentModifiers == oldModifiers): # If the same, no modifier was removed
-            return True
+    # if (compare):
+    #     if(currentModifiers == oldModifiers): # If the same, no modifier was removed
+    #         return True
         
-        saveModifiersOnCache(currentModifiers)
-        return False
+    #     saveModifiersOnCache(currentModifiers)
+    #     return False
 
     return [operator.name, operator.properties.modifier, bpy.context.active_object.name]
 
 def addConstraintOp(operator, compare = False):
 
-    if (compare):
-       return False
+    # if (compare):
+    #    return False
 
     return [operator.name, operator.properties.type, bpy.context.active_object.name]
 
 def deleteConstraintOp(operator, compare = False):
 
-    if (compare):
-       return False
+    # if (compare):
+    #    return False
 
     return [operator.name, {    "constraint": operator.properties.constraint,
                                 "owner": operator.properties.owner
@@ -160,76 +159,79 @@ def transformOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
     mode = activeObj.mode
     objsDict = getObjectsOnCache()
+
+    if (mode == "OBJECT"):
+
+        # Save new transform properties of objetcs
+        saveObjectsOnCache(getAllObjects())
     
-    if (compare):
+    # if (compare):
 
+    #     if (mode == 'EDIT'):
 
-        if (mode == 'EDIT'):
-
-            if(objsDict[activeObj.name]["vertices"] == getAllVerticesOfObject()):
-                # No modification
-                return True
+    #         if(objsDict[activeObj.name]["vertices"] == getAllVerticesOfObject()):
+    #             # No modification
+    #             return True
             
-            else:
-                return False
+    #         else:
+    #             return False
 
-        if(operator.name == "Move" and list(activeObj.location) == objsDict[activeObj.name]["location"]):
-            # No modification
-            return True
+    #     if(operator.name == "Move" and list(activeObj.location) == objsDict[activeObj.name]["location"]):
+    #         # No modification
+    #         return True
         
-        elif(operator.name == "Resize" and list(activeObj.scale) == objsDict[activeObj.name]["scale"]):
-            # No modification
-            return True
+    #     elif(operator.name == "Resize" and list(activeObj.scale) == objsDict[activeObj.name]["scale"]):
+    #         # No modification
+    #         return True
         
-        elif(operator.name == "Rotate" and list(activeObj.rotation_euler) == objsDict[activeObj.name]["rotation"]):
-            # No modification
-            return True
+    #     elif(operator.name == "Rotate" and list(activeObj.rotation_euler) == objsDict[activeObj.name]["rotation"]):
+    #         # No modification
+    #         return True
         
-        else:
-            saveObjectsOnCache(getAllObjects())
-            return False
+    #     else:
+    #         saveObjectsOnCache(getAllObjects())
+    #         return False
 
-    else:
-        # Returns the final objects position / rotation / scale
+    # Returns the final objects position / rotation / scale
 
-        if(mode == 'EDIT'):
-            allVertices = getAllVerticesOfObject()
-            oldVertices = objsDict[activeObj.name]["vertices"]
+    if(mode == 'EDIT'):
+        allVertices = getAllVerticesOfObject()
+        oldVertices = objsDict[activeObj.name]["vertices"]
 
-            # Checking which are the vertices that have been modified
-            difference = []
-            for key in allVertices.keys():
-                if (allVertices[key] != oldVertices[key]): difference.append(key)
+        # Checking which are the vertices that have been modified
+        difference = []
+        for key in allVertices.keys():
+            if (allVertices[key] != oldVertices[key]): difference.append(key)
 
-            saveObjectVerticesOnCache(allVertices)
+        saveObjectVerticesOnCache(allVertices)
 
-            if (operator.name == "Rotate"):
-                rotateValue = math.degrees(operator.properties.value)
-                return  [operator.name, {
-                                            "vertices": allVertices,
-                                            "selectedVertices": difference,
-                                            "value": [rotateValue if operator.properties.constraint_axis[0] else 0, rotateValue if operator.properties.constraint_axis[1] else 0, rotateValue if operator.properties.constraint_axis[2] else 0]
-                                            },
-                        activeObj.name]
-            
-            elif (operator.name == "Move" or operator.name == "Resize"):
-                return  [operator.name, {
-                                            "vertices": allVertices,
-                                            "selectedVertices": difference,
-                                            "value": list(operator.properties.value)
-                                            },
-                        activeObj.name]
-
-        elif(operator.name == "Rotate"):
-           return  [operator.name, list(activeObj.rotation_euler), activeObj.name]
+        if (operator.name == "Rotate"):
+            rotateValue = math.degrees(operator.properties.value)
+            return  [operator.name, {
+                                        "vertices": allVertices,
+                                        "selectedVertices": difference,
+                                        "value": [rotateValue if operator.properties.constraint_axis[0] else 0, rotateValue if operator.properties.constraint_axis[1] else 0, rotateValue if operator.properties.constraint_axis[2] else 0]
+                                        },
+                    activeObj.name]
         
-        elif(operator.name == "Move"):
-           return  [operator.name, list(activeObj.location), activeObj.name]
+        elif (operator.name == "Move" or operator.name == "Resize"):
+            return  [operator.name, {
+                                        "vertices": allVertices,
+                                        "selectedVertices": difference,
+                                        "value": list(operator.properties.value)
+                                        },
+                    activeObj.name]
 
-        elif(operator.name == "Resize"):
-           return  [operator.name, list(activeObj.scale), activeObj.name]
-        
-        # return [operator.name, operator.properties.value]
+    elif(operator.name == "Rotate"):
+        return  [operator.name, list(activeObj.rotation_euler), activeObj.name]
+    
+    elif(operator.name == "Move"):
+        return  [operator.name, list(activeObj.location), activeObj.name]
+
+    elif(operator.name == "Resize"):
+        return  [operator.name, list(activeObj.scale), activeObj.name]
+    
+    # return [operator.name, operator.properties.value]
 
 def deleteOp(operator, compare = False):
 
@@ -245,30 +247,19 @@ def deleteOp(operator, compare = False):
         allVertices = getAllVerticesOfObject()
         objsDict = getObjectsOnCache()
 
-        if (compare):
+        currentVertices = list(allVertices.keys())
+        oldVertices = list(objsDict[activeObj.name]["vertices"].keys())
 
-            if(objsDict[activeObj.name]["vertices"] == getAllVerticesOfObject() and getTempValueOnCache() == operator.properties.type):
-                # No modification
-                return True
-            
-            else:
-                return False
-            
-        else:
+        difference = list( set(currentVertices).symmetric_difference(set(oldVertices)) ) # List of the keys of the vertices that have been deleted
 
-            currentVertices = list(allVertices.keys())
-            oldVertices = list(objsDict[activeObj.name]["vertices"].keys())
+        saveTempValueOnCache(operator.properties.type)
+        saveObjectVerticesOnCache(allVertices)
 
-            difference = list( set(currentVertices).symmetric_difference(set(oldVertices)) ) # List of the keys of the vertices that have been deleted
-
-            saveTempValueOnCache(operator.properties.type)
-            saveObjectVerticesOnCache(allVertices)
-
-            return [operator.name, {
-                                        "value": operator.properties.type, # indicates what have been deleted: Vertices, faces or edges
-                                        "selectedVertices": difference
-                                    },
-                    activeObj.name]
+        return [operator.name, {
+                                    "value": operator.properties.type, # indicates what have been deleted: Vertices, faces or edges
+                                    "selectedVertices": difference
+                                },
+                activeObj.name]
 
     else:
 
@@ -277,11 +268,11 @@ def deleteOp(operator, compare = False):
         currentObjects = list(currentObjsDict.keys())
         oldObjects = list(getObjectsOnCache().keys())
 
-        if (compare):
-            if(currentObjects == oldObjects): # If the same, no object was deleted
-                return True
+        # if (compare):
+        #     if(currentObjects == oldObjects): # If the same, no object was deleted
+        #         return True
             
-            return False
+        #     return False
         
         # Get the object/s that have been deleted
         set1 = set(currentObjects)
@@ -295,89 +286,84 @@ def deleteOp(operator, compare = False):
 def shadeChangeOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
 
-    if (compare):
+    # if (compare):
 
-        if (activeObj == None):
-            return True
+    #     if (activeObj == None):
+    #         return True
         
-        else:
-            objName = activeObj.name
-            isCurrentSmoothed = getAllObjects()[objName]["isSmooth"]
-            isOldSmoothed = getObjectsOnCache()[objName]["isSmooth"]
+    #     else:
+    #         objName = activeObj.name
+    #         isCurrentSmoothed = getAllObjects()[objName]["isSmooth"]
+    #         isOldSmoothed = getObjectsOnCache()[objName]["isSmooth"]
             
-            if (isCurrentSmoothed == isOldSmoothed):
-                # No modification
-                return True
+    #         if (isCurrentSmoothed == isOldSmoothed):
+    #             # No modification
+    #             return True
             
-            else:
-                return False
+    #         else:
+    #             return False
     
-    else:
-        currObjects = getAllObjects()
-        saveObjectsOnCache(currObjects)
+    currObjects = getAllObjects()
+    saveObjectsOnCache(currObjects)
 
-        return [operator.name, activeObj.name]
+    return [operator.name, activeObj.name]
     
 def clearOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
     allObjs = getAllObjects()
     OldObjs = getObjectsOnCache()
 
-    if (compare):
+    # if (compare):
 
-        if (activeObj == None):
-            return True
+    #     if (activeObj == None):
+    #         return True
         
-        else:
+    #     else:
             
-            if (allObjs == OldObjs):
-                # No modification
-                return True
+    #         if (allObjs == OldObjs):
+    #             # No modification
+    #             return True
             
-            else:
-                return False
-    
-    else:
+    #         else:
+    #             return False
         
-        saveObjectsOnCache(allObjs)
+    saveObjectsOnCache(allObjs)
 
-        return [operator.name, operator.properties.clear_delta, activeObj.name]
+    return [operator.name, operator.properties.clear_delta, activeObj.name]
     
 def duplicateObjOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
     allObjs = getAllObjects()
     oldObjs = getObjectsOnCache()
 
-    if (compare):
+    # if (compare):
 
-        if (activeObj == None):
-            return True
+    #     if (activeObj == None):
+    #         return True
         
-        else:
+    #     else:
             
-            if (allObjs == oldObjs):
-                # No modification
-                return True
+    #         if (allObjs == oldObjs):
+    #             # No modification
+    #             return True
             
-            else:
-                return False
-    
-    else:
-        saveObjectsOnCache(allObjs)
+    #         else:
+    #             return False
 
-        return [operator.name, activeObj.name]
+    saveObjectsOnCache(allObjs)
+
+    return [operator.name, activeObj.name]
     
 def recalcNormalsOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
 
-    if compare: return False
+    # if compare: return False
     
-    else:
-        return [operator.name, {"inside" : operator.properties.inside},activeObj.name]
+    return [operator.name, {"inside" : operator.properties.inside},activeObj.name]
     
 def mirrorOp(operator, compare = False):
 
-    if compare: return False
+    # if compare: return False
 
     activeObj = bpy.context.view_layer.objects.active
     mode = activeObj.mode
@@ -392,7 +378,7 @@ def mirrorOp(operator, compare = False):
 
 def snapOp(operator, compare = False):
 
-    if compare: return False
+    # if compare: return False
 
     activeObj = bpy.context.view_layer.objects.active
     if (activeObj == None):
@@ -413,24 +399,25 @@ def snapOp(operator, compare = False):
 def subDivisionSetOp(operator, compare = False):
 
     activeObj = bpy.context.view_layer.objects.active
+    objName = activeObj.name if activeObj != None else None # User can try to apply this operation to no object
 
-    if (compare): 
-        if (activeObj == None):
-            # Means user tried to apply this operation to no object, thus discard the operation
-            return True
+    # if (compare): 
+    #     if (activeObj == None):
+    #         # Means user tried to apply this operation to no object, thus discard the operation
+    #         return True
         
-        return False
+    #     return False
     
     return [operator.name, { "level": operator.properties.level,
-                             "relative": operator.properties.relative }, activeObj.name]
+                             "relative": operator.properties.relative }, objName]
 
 def newCollectionOp(operator, compare = False):
-    if compare: return False
+    # if compare: return False
 
     return [operator.name, "Scene"]
 
 def moveToCollectionOp(operator, compare = False):
-    if compare: return False
+    # if compare: return False
 
     return [operator.name, {    "isNew": operator.properties.is_new,
                                 "newCollectionName": operator.properties.new_collection_name,
@@ -444,15 +431,15 @@ def insetOp(operator, compare = False):
     allVertices = getAllVerticesOfObject()  
     objsDict = getObjectsOnCache()
     
-    if (compare):
+    # if (compare):
 
 
-        if(objsDict[activeObj.name]["vertices"] == allVertices):
-            # No modification
-            return True
+    #     if(objsDict[activeObj.name]["vertices"] == allVertices):
+    #         # No modification
+    #         return True
         
-        else:
-            return False
+    #     else:
+    #         return False
     
     oldVertices = objsDict[activeObj.name]["vertices"]
 
@@ -473,16 +460,16 @@ def subdivideOp(operator, compare = False):
     activeObj = bpy.context.view_layer.objects.active
     allVertices = getAllVerticesOfObject()  
     
-    if (compare):
+    # if (compare):
 
-        objsDict = getObjectsOnCache()
+    #     objsDict = getObjectsOnCache()
 
-        if(objsDict[activeObj.name]["vertices"] == allVertices):
-            # No modification
-            return True
+    #     if(objsDict[activeObj.name]["vertices"] == allVertices):
+    #         # No modification
+    #         return True
         
-        else:
-            return False
+    #     else:
+    #         return False
   
     saveObjectVerticesOnCache(allVertices)
     return [operator.name, operator.properties.number_cuts, activeObj.name]
@@ -494,14 +481,14 @@ def extrudeOp(operator, compare = False):
     allVertices = getAllVerticesOfObject()  
     objsDict = getObjectsOnCache()
 
-    if (compare):
+    # if (compare):
 
-        if(objsDict[activeObj.name]["vertices"] == allVertices):
-            # No modification
-            return True
+    #     if(objsDict[activeObj.name]["vertices"] == allVertices):
+    #         # No modification
+    #         return True
         
-        else:
-            return False
+    #     else:
+    #         return False
 
     operations = getPerformedOperations()
 
@@ -545,7 +532,7 @@ def extrudeOp(operator, compare = False):
 def mergeByDistanceOp(operator, compare = False):
     # Not using compare anymore
 
-    if compare: return False
+    # if compare: return False
 
     activeObj = bpy.context.view_layer.objects.active
     allVertices = getAllVerticesOfObject()
@@ -570,7 +557,7 @@ def mergeByDistanceOp(operator, compare = False):
 def selectAllOp(operator, compare = False):
     # Not using compare anymore
 
-    if compare: return False
+    # if compare: return False
 
     return [operator.name, operator.properties.action]
 
@@ -591,35 +578,33 @@ def defaultCase(operator, compare = False):
             allVertices = getAllVerticesOfObject()
             objsDict = getObjectsOnCache()
 
-            if(compare):
+            # if(compare):
 
-                if(objsDict[activeObj.name]["vertices"] == allVertices):
-                    # No modification
-                    return True
+            #     if(objsDict[activeObj.name]["vertices"] == allVertices):
+            #         # No modification
+            #         return True
                 
-                else:
-                    return False
-                
-            else:
+            #     else:
+            #         return False
 
-                saveObjectVerticesOnCache(allVertices)
-
-                return [operator.name[:3], operator.name[4:], bpy.context.active_object.name]
+            saveObjectVerticesOnCache(allVertices)
+            return [operator.name[:3], operator.name[4:], bpy.context.active_object.name]
         
         else:
 
             currentObjsDict = getAllObjects()
 
-            currentObjects = list(currentObjsDict.keys())
-            oldObjects = list(getObjectsOnCache().keys())
+            # currentObjects = list(currentObjsDict.keys())
+            # oldObjects = list(getObjectsOnCache().keys())
 
-            if (compare):
-                # return False
-                if(currentObjects == oldObjects): # If the same, no object / mesh was added
-                    return True
+            # if (compare):
+            #     # return False
+            #     if(currentObjects == oldObjects): # If the same, no object / mesh was added
+            #         return True
                 
-                saveObjectsOnCache(currentObjsDict)
-                return False
+            #     saveObjectsOnCache(currentObjsDict)
+            #     return False
+            saveObjectsOnCache(currentObjsDict)
             
             # return [operator.name[:3], {    "object": operator.name[4:],
             #                                 "size": operator.properties.size,
@@ -650,14 +635,14 @@ def defaultCase(operator, compare = False):
 
 
     else:
-        if(compare):
+        # if(compare):
 
-            unrec = "Not recognized operation: {}".format(operator.name)
+        #     unrec = "Not recognized operation: {}".format(operator.name)
             
-            return unrec
+        #     return unrec
         
         print("Not recognized operation: ", operator.name)
-        return []
+        return ["Not recognized operation: {}".format(operator.name)]
 
 operatorsDict = {
     "Run Script": passOp,
@@ -745,30 +730,6 @@ def formatOperation(operator, isSame = False):
 def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     # Receives 2 operations - old (formatted = [operator name, properties]) and new (= bpy.context.active_operator) - and compare them to return if they are the same operation (true or false)
 
-    # ========================================= USING CONTEXT OVERRIDE ======================================
-
-    # operations = getPerformedOperations()
-    
-    # if (len(operations) == 0):
-    #     # It happens sometimes that the operations list come empty
-    #     return True
-    
-    # lastOp = operations[-1]
-    # global numberOfOp
-
-    # if (len(operations) > numberOfOp and lastOp[:7] == "bpy.ops"):
-    #     numberOfOp = len(operations)
-    #     return False
-    
-    # elif (len(operations) > numberOfOp):
-    #     # Detected something that is not an operation, so ignore it and update the number of operations
-    #     numberOfOp = len(operations)
-    #     return True
-
-    # else:
-    #     return True
-
-    # =======================================================================================================
 
     operations = getPerformedOperations(mouse_x, mouse_y)
     
@@ -782,7 +743,6 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
             for operation in operations[-(len(operations) - numberOfOp):]:
                 if (operation[:3] == "bpy" and operation[:34] != 'bpy.data.window_managers["WinMan"]'):
                     # Pick the last bpy occurence, ignore if window change so it keeps the operation itself
-                    print("ULTIMA OPERACAO VALENDO: ", operation)
                     lastOp = operation
 
 
@@ -794,36 +754,36 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
                 return True
 
-            result = operatorsDict.get(newOp.name, defaultCase)(newOp, compare = True)
-            if (type(result) == bool):
-                return result
+            # result = operatorsDict.get(newOp.name, defaultCase)(newOp, compare = True)
+
+            # if (type(result) == bool):
+            #     return False
             
-            elif (type(result) == str):
-                # If string, it is an unrecognized operation
+            # elif (type(result) == str):
+            #     # If string, it is an unrecognized operation
 
-                if ((len(tut.tutorialSteps) != 0 and tut.tutorialSteps[-1] != [result]) or len(tut.tutorialSteps) == 0):
-                    activeObj = bpy.context.view_layer.objects.active
-                    mode = activeObj.mode
+            #     if ((len(tut.tutorialSteps) != 0 and tut.tutorialSteps[-1] != [result]) or len(tut.tutorialSteps) == 0):
+            #         activeObj = bpy.context.view_layer.objects.active
 
-                    if (mode == 'EDIT'):
-                        allVertices = getAllVerticesOfObject()
-                        saveObjectVerticesOnCache(allVertices)
+            #         if (activeObj != None and activeObj.mode == 'EDIT'):
+            #             allVertices = getAllVerticesOfObject()
+            #             saveObjectVerticesOnCache(allVertices)
 
-                    else:
-                        allObjects = getAllObjects()
-                        saveObjectsOnCache(allObjects)
+            #         else:
+            #             allObjects = getAllObjects()
+            #             saveObjectsOnCache(allObjects)
                     
-                    tut.addTutorialStep([result])
+            #         tut.addTutorialStep([result])
                 
-                return True
+            #     return True
 
             else:
-                if (formattedOldOp == None):
-                    # If it is the first operation, oldOp is None
-                    return False
+                # if (formattedOldOp == None):
+                #     # If it is the first operation, oldOp is None
+                #     return False
 
-                if(formattedOldOp[1] == result[1]):
-                    return True
+                # if(formattedOldOp[1] == result[1]):
+                #     return True
                 
                 return False
 
