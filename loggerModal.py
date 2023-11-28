@@ -35,15 +35,11 @@ cacheDict = {
 def saveObjectsOnCache(objsDict):
     # Saves a list of all the objects names in the scene in the cache
 
-    # objsList = getAllObjects()
-    # print("INFO: Saving objects on cache: ", objsDict)
     cacheDict["allObjects"] = objsDict
 
 def saveModifiersOnCache(modifiersList):
     # Saves a list of all the modifiers names of the selected object in the cache
     
-    # modifiersList = getAllModifiers()
-    # print("INFO: Saving modifiers on cache: ", modifiersList)
     cacheDict["allModifiers"] = modifiersList
 
 def saveObjectVerticesOnCache (vertDict):
@@ -113,8 +109,8 @@ def renameOp(operator, compare = False):
 
 def addModifierOp(operator, compare = False):
 
-    currentModifiers = getAllModifiers()
-    saveModifiersOnCache(currentModifiers)
+    # currentModifiers = getAllModifiers()
+    # saveModifiersOnCache(currentModifiers)
 
     # if (compare):
     #     if(currentModifiers == oldModifiers): # If the same, no modifier was added
@@ -127,8 +123,8 @@ def addModifierOp(operator, compare = False):
 
 def removeModifierOp(operator, compare = False):
 
-    currentModifiers = getAllModifiers()
-    saveModifiersOnCache(currentModifiers)
+    # currentModifiers = getAllModifiers()
+    # saveModifiersOnCache(currentModifiers)
 
     # if (compare):
     #     if(currentModifiers == oldModifiers): # If the same, no modifier was removed
@@ -702,7 +698,7 @@ def changeShading(description):
     return ["Change shading mode", newMode, "Scene"]
 
 def notOperatorDefaultCase(description):
-    return "Not recognized user action: {}".format(description)
+    return ["Not recognized user action: {}".format(description)]
 
 notOperatorsDict = {
     ("bpy", "context", "space_data", "shading"): changeShading,
