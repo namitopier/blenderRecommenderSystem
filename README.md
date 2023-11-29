@@ -23,7 +23,7 @@
 
 ## Introduction
 
-The Blender Recommender System is an innovative project designed to enhance the learning experience for students in computer graphics courses utilizing Blender. This 3D modeling software is widely used, and the project aims to provide a virtual intelligent agent, implemented as a Blender python addon, to assist students in their learning journey. The primary objective of the first part of the project is to establish a modular and scalable architecture,offering detailed components to detect user actions, log operations, and prepare data for a universal language to be used by an intelligent recommender system.
+The Blender Recommender System is an innovative project designed to enhance the learning experience for students in computer graphics courses utilizing Blender. This 3D modeling software is widely used, and the project aims to provide a virtual intelligent agent, implemented as a Blender python addon, to assist students in their learning journey. The primary objective of the first part of the project is to establish a modular and scalable architecture, offering detailed components to detect user actions, log operations, and prepare data for a universal language to be used by an intelligent recommender system.
 
 ## Project Components
 
@@ -51,7 +51,7 @@ The **Cache Component** makes use of Blender's API performing dynamic updates ba
 
 Represented as a dictionary (key-value pair), it is accessed by the Operators Component and the Modal Operator Component. Its methods are described using the get/set configuration.
 
-By monitoring Blender's mode (object or edit mode), the system intelligently updates the cache, ensuring accurate and real-time representation of object properties.
+By monitoring Blender's mode (object or edit mode), the system intelligently updates the cache, ensuring an accurate and real-time representation of object properties.
 
 *Cache Structure*:
 
@@ -113,9 +113,9 @@ This component is slated for development in the second part of the thesis. It wi
 
 The project employs an intelligent combination of context override and mouse tracking to address the challenge of repeated operations triggered by mouse movements. This strategy ensures accurate tracking and prevents disruption to the user's experience.
 
-Detecting whether new operations were performed by the user presents challenges, particularly when the modal operator component tracks mouse movement. This results in repeated executions, even when no new operation occurred, as the method to extract the last operation from Blender's internal cache is invoked again. Addressing this issue involves using context override to extract information from the "info" area in the Blender user interface.
+Detecting whether new operations were performed by the user presents challenges, particularly when the modal operator component tracks mouse movement. This results in repeated executions, even when no new operation occurs, as the method to extract the last operation from Blender's internal cache is invoked again. Addressing this issue involves using context override to extract information from the "info" area in the Blender user interface.
 
-Every time a new operation occurs, a new line appears in the "info" area, describing the user's chosen properties and values. However, accessing these values requires the "info" area to be open in the Blender HUD, which may seem impractical. Context override comes to the rescue by allowing the replacement of an already opened area with the "info" area and then swiftly switching back to the previous area. Mouse tracking helps identify the active area, preventing interference with the user experience.
+Every time a new operation happens, a new line appears in the "info" area, describing the user's chosen properties and values. However, accessing these values requires the "info" area to be open in the Blender HUD, which may seem impractical. Context override comes to the rescue by allowing the replacement of an already opened area with the "info" area and then swiftly switching back to the previous area. Mouse tracking helps identify the active area, preventing interference with the user experience.
 
 Despite initial concerns about performance, extensive testing demonstrates the efficiency of this method, handling up to 1000 operations copied from the "info" area without compromising system performance.
 
@@ -125,7 +125,7 @@ One notable challenge involves handling user actions not internally computed by 
 
 ### Efficiency
 
-The project prioritizes efficiency, evident in the seamless replacement of active areas within Blender's interface and use of complex dictionary structures. Context override and mouse tracking work in harmony to minimize disruption, even in scenarios where user actions, such as CTRL+Z or view mode changes, may not be internally computed by Blender.
+The project prioritizes efficiency, evident in the seamless replacement of active areas within Blender's interface and the use of complex dictionary structures. Context override and mouse tracking work in harmony to minimize disruption, even in scenarios where user actions, such as CTRL+Z or view mode changes, may not be internally computed by Blender.
 
 ### Handling Complex Operations
 
