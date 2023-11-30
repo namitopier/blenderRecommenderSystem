@@ -21,9 +21,15 @@
 
 # Blender Recommender System
 
+**Master's student:** Pier Luigi Nakai Ricchetti
+
+**Professors:** Fabrizio Lamberti (PoliTo), Alberto Cannavò (PoliTo) and Ricardo Nakamura (POLI-USP)
+
 ## Introduction
 
-The Blender Recommender System is an innovative project designed to enhance the learning experience for students in computer graphics courses utilizing Blender. This 3D modeling software is widely used, and the project aims to provide a virtual intelligent agent, implemented as a Blender python addon, to assist students in their learning journey. The primary objective of the first part of the project is to establish a modular and scalable architecture, offering detailed components to detect user actions, log operations, and prepare data for a universal language to be used by an intelligent recommender system.
+This project is a collaboration between **Politecnico di Torino** with professors Fabrizio Lamberti and Alberto Cannavò (the ones that have proposed the idea) and **Escola Politécnica da USP** with professor Ricardo Nakamura.
+
+The Blender Recommender System is an innovative project designed to enhance the learning experience for students in computer graphics courses utilizing Blender. This 3D modeling software is widely used, and the project aims to provide a virtual intelligent agent, implemented as a Blender python addon, to assist students in their learning journey. The primary objective of the first part of the project is to establish a modular and scalable architecture, offering detailed components to detect user actions, log operations, and prepare data for a universal language to be used by an intelligent recommender system (that will be developed in the second phase of the project).
 
 ## Project Components
 
