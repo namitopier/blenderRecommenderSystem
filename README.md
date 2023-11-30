@@ -27,6 +27,10 @@ The Blender Recommender System is an innovative project designed to enhance the 
 
 ## Project Components
 
+The architecture can be checked in the image below:
+
+![](2023-11-30-16-09-36.png)
+
 ### Modal Operator Component
 
 The Modal Operator Component leverages Blender's modal operators to interactively capture user inputs. In Blender, a modal operator allows continuous interaction with the user, making it ideal for tracking dynamic user actions such as mouse movement and clicks. Utilizing a modal operator ensures continuous monitoring of user actions, providing a robust foundation for operation tracking.
