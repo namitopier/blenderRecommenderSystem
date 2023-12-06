@@ -729,7 +729,6 @@ class ModalOperator(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "Simple Modal Operator"
     
-    tutState = 0
     prevOperation = None
     currOperation = None
     tut = None
@@ -738,9 +737,14 @@ class ModalOperator(bpy.types.Operator):
 
         if ((bpy.context.active_object == None and len(getAllObjects().keys()) == 0) or not useLogger):
             # Means that initialized the addon with no object in the scene or logger not started
+            if (not useLogger):
+                return {'CANCELLED'}
+            
             return {'PASS_THROUGH'}
 
-        elif event.type in {'LEFTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
+        elif event.type in {'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
+
+            print("ENTROU NO MODAL OPERATOR: ", event.type)
 
             isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut,)
 
@@ -769,6 +773,8 @@ class ModalOperator(bpy.types.Operator):
 
                 # self.tut.validateStep(formattedOp)
                 # print("\n Progress: ", self.tut.getProgress())
+                
+            return {'PASS_THROUGH'}
 
 
         elif event.type == 'NUMPAD_ASTERIX':
@@ -781,7 +787,8 @@ class ModalOperator(bpy.types.Operator):
 
         # return {'RUNNING_MODAL'}
 
-        return {'PASS_THROUGH'}
+        else:
+            return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
         if context.object or context.object == None:
@@ -827,7 +834,10 @@ class StartLogger(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        # Can only click here if logger hasn't started yet
+        global useLogger
+        return not useLogger
+        # return context.active_object is not None
 
     def execute(self, context):
         startLogger(context)
@@ -840,7 +850,10 @@ class StopLogger(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        # Can only click here if logger has started
+        global useLogger
+        return useLogger
+        # return context.active_object is not None
 
     def execute(self, context):
         stopLogger(context)
@@ -983,4 +996,4 @@ if __name__ == "__main__":
     register()
 
     # test call
-    bpy.ops.object.modal_operator('INVOKE_DEFAULT')
+    # bpy.ops.object.modal_operator('INVOKE_DEFAULT')
