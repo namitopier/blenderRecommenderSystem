@@ -14,10 +14,13 @@ import bpy, bmesh
 from bpy.props import IntProperty, FloatProperty
 import mathutils
 import math
+import time
 
 useLogger = False
+tutorialMode = False
 logCache = []
 numberOfOp = 0
+rename = False
 
 # ======================================================================================================================= #
 # ============================================= Cache Related =========================================================== #
@@ -79,6 +82,8 @@ def editModeOp(operator):
 
 def renameOp(operator):
 
+    global rename
+
     currentObjsDict = getAllObjects()
 
     # Get the name of the objects in the scene
@@ -90,9 +95,13 @@ def renameOp(operator):
     set2 = set(oldObjects)
     difference = set1.symmetric_difference(set2)
 
+    if (len(list(difference)) == 0):
+        rename = True
+        return []
+
     saveObjectsOnCache(currentObjsDict)
 
-    return [operator.name, list(difference)]
+    return [operator if type(operator) == str else operator.name, list(difference)]
 
 def addModifierOp(operator):
    
@@ -490,11 +499,26 @@ def formatOperation(operator, isSame = False):
 
     return result
 
-def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
+def processOperation( newOp, mouse_x, mouse_y):
     # Receives 2 operations - old (formatted = [operator name, properties]) and new (= bpy.context.active_operator) - and compare them to return if they are the same operation (true or false)
 
+    global rename
 
+    if rename:
+        response = renameOp("Rename")
+
+        if( len(response) == 2 ):
+            # Means user have confirmed the new name
+            rename = False
+            return response
+
+    # inicio = time.time()
     operations = getPerformedOperations(mouse_x, mouse_y)
+    # fim = time.time()
+
+    # print ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA: ", fim-inicio)
+    
+    isSame = None
     
     if (len(operations) != 0):
         # It happens sometimes that the operations list comes empty
@@ -515,24 +539,34 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
             
             if (newOp == None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
-                return True
+                isSame = True
 
             else:
                 
-                return False
+                isSame = False
 
         
         elif (len(operations) > numberOfOp and lastOp[:3] == "bpy" and lastOp[:34] != 'bpy.data.window_managers["WinMan"]'):
             # Detected something that is not an operation, so treat them according to the type of action
 
             numberOfOp = len(operations)
-            return operations[-1]
+            isSame = operations[-1]
 
         else:
-            return True
+            isSame = True
         
     else:
-        return True
+        isSame = True
+
+    if (isSame != True):
+
+        # Has to save in the formatted form because otherwise it will save the struct in the memory
+        currOperation = formatOperation(newOp, isSame)
+        
+        if (len(currOperation) == 0): 
+            return None
+
+        return currOperation
     
 def getAllObjects():
     # Gets all the objects in the scene.
@@ -729,34 +763,43 @@ class ModalOperator(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "Simple Modal Operator"
     
-    prevOperation = None
     currOperation = None
     tut = None
 
     def modal(self, context, event):
 
-        if ((bpy.context.active_object == None and len(getAllObjects().keys()) == 0) or not useLogger):
+        if ((bpy.context.active_object == None and len(getAllObjects().keys()) == 0) or (not useLogger and not tutorialMode)):
             # Means that initialized the addon with no object in the scene or logger not started
             if (not useLogger):
                 return {'CANCELLED'}
             
             return {'PASS_THROUGH'}
 
-        elif event.type in {'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
+        # elif event.type in {'A', 'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
+        elif event.type not in {'MOUSEMOVE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE', 'WHEELINMOUSE', 'WHEELOUTMOUSE', 'TIMER', 'TIMER0', 'TIMER1', 'TIMER2', 'TIMER_JOBS', 'TIMER_AUTOSAVE', 'TIMER_REPORT', 'TIMERREGION'}:
 
-            print("ENTROU NO MODAL OPERATOR: ", event.type)
+            global rename
 
-            isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut,)
+            if (rename and event.type == 'INBETWEEN_MOUSEMOVE'):
+                # Means user have cancelled rename operation
+                rename = False
 
-            if (isSame != True):
+            # print("ENTROU NO MODAL OPERATOR: ", event.type)
 
-                # Has to save in the formatted form because otherwise it will save the struct in the memory
-                self.currOperation = formatOperation(context.active_operator, isSame)
+            processed = processOperation(context.active_operator, event.mouse_x, event.mouse_y)
+
+            if (processed != None):
+                self.tut.addTutorialStep(processed)
+
+            # if (isSame != True):
+
+            #     # Has to save in the formatted form because otherwise it will save the struct in the memory
+            #     self.currOperation = formatOperation(context.active_operator, isSame)
                 
-                if (len(self.currOperation) == 0): 
-                    return {'PASS_THROUGH'}
+            #     if (len(self.currOperation) == 0): 
+            #         return {'PASS_THROUGH'}
 
-                self.tut.addTutorialStep(self.currOperation)
+            #     self.tut.addTutorialStep(self.currOperation)
 
                 # result = self.tut.validateStep(self.currOperation)
                 # if (result == ['correct']):
@@ -769,7 +812,7 @@ class ModalOperator(bpy.types.Operator):
                 #     print("============================ WRONG OPERATION!")
                 #     print("============================ Expected operation: ", result[2])
 
-                self.prevOperation = self.currOperation
+            # self.prevOperation = self.currOperation
 
                 # self.tut.validateStep(formattedOp)
                 # print("\n Progress: ", self.tut.getProgress())
@@ -836,11 +879,34 @@ class StartLogger(bpy.types.Operator):
     def poll(cls, context):
         # Can only click here if logger hasn't started yet
         global useLogger
-        return not useLogger
+        global tutorialMode
+        return ((not useLogger) and (not tutorialMode))
         # return context.active_object is not None
 
     def execute(self, context):
         startLogger(context)
+        return {'FINISHED'}
+    
+class TutorialMode(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "object.tutorial_mode"
+    bl_label = "Load cube pyramid tutorial"
+
+    @classmethod
+    def poll(cls, context):
+        # Can only click here if logger hasn't started yet
+        global useLogger
+        global tutorialMode
+        return ((not useLogger) and (not tutorialMode))
+        # return context.active_object is not None
+
+    def execute(self, context):
+        global tutorialMode
+        tutorialMode = True
+
+        bpy.ops.object.modal_operator('INVOKE_DEFAULT')
+        print("============================================== TUTORIAL STARTED ==============================================")
+
         return {'FINISHED'}
     
 class StopLogger(bpy.types.Operator):
@@ -852,13 +918,15 @@ class StopLogger(bpy.types.Operator):
     def poll(cls, context):
         # Can only click here if logger has started
         global useLogger
-        return useLogger
+        global tutorialMode
+        return useLogger or tutorialMode
         # return context.active_object is not None
 
     def execute(self, context):
         stopLogger(context)
         return {'FINISHED'}
     
+
 class LayoutDemoPanel(bpy.types.Panel):
     """Creates a Panel in the scene context of the properties editor"""
     # bl_label = "Layout Demo"
@@ -913,11 +981,18 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.scale_y = 3.0
         row.operator("object.log_actions")
 
+        # Load Cube Pyramid tutorial
+        layout.label(text="Load tutorial:")
+        row = layout.row()
+        row.scale_y = 3.0
+        row.operator("object.tutorial_mode")
+
         # Stop Logger
         layout.label(text="Stop the logger:")
         row = layout.row()
         row.scale_y = 3.0
         row.operator("object.stop_logger")
+
 
         # Different sizes in a row
 #        layout.label(text="Different button sizes:")
@@ -957,18 +1032,22 @@ def startLogger(context):
 
 def stopLogger(context):
 
-    global logCache
-    file_path = bpy.path.abspath('//logger_log.txt')
+    global tutorialMode
 
-    with open(file_path, 'w') as file:
-        # Convert the list to a string
+    if not tutorialMode: 
+        global logCache
+        file_path = bpy.path.abspath('//logger_log.txt')
 
-        for action in logCache:
-            # Write the string to the file
-            file.write(format_list_as_string(action) + '\n')
+        with open(file_path, 'w') as file:
+            # Convert the list to a string
+
+            for action in logCache:
+                # Write the string to the file
+                file.write(format_list_as_string(action) + '\n')
 
     global useLogger
     useLogger = False
+    tutorialMode = False
     print("============================================== LOGGER STOPPED ==============================================")
 
 def menu_func(self, context):
@@ -978,6 +1057,7 @@ def menu_func(self, context):
 # Register and add to the "view" menu (required to also use F3 search "Simple Modal Operator" for quick access).
 def register():
     bpy.utils.register_class(StartLogger)
+    bpy.utils.register_class(TutorialMode)
     bpy.utils.register_class(StopLogger)
     bpy.utils.register_class(LayoutDemoPanel)
     bpy.utils.register_class(ModalOperator)
@@ -986,6 +1066,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(StartLogger)
+    bpy.utils.unregister_class(TutorialMode)
     bpy.utils.unregister_class(StopLogger)
     bpy.utils.unregister_class(LayoutDemoPanel)
     bpy.utils.unregister_class(ModalOperator)
