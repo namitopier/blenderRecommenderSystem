@@ -744,8 +744,6 @@ class ModalOperator(bpy.types.Operator):
 
         elif event.type in {'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
 
-            print("ENTROU NO MODAL OPERATOR: ", event.type)
-
             isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut,)
 
             if (isSame != True):
