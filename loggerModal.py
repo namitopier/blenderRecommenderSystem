@@ -508,6 +508,8 @@ notOperatorsDict = {
 def formatOperation2(operator, isSame):
     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
 
+# =======================================================================================================
+                
     if isSame[:7] == "bpy.ops":
         # The structure of bpy.ops is different than the others
 
@@ -542,43 +544,126 @@ def formatOperation2(operator, isSame):
         translated = [operator.name, result]
 
     else:
-        # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
+        # # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
 
+        # translated = [""]
+
+        # # Get the first (because it might have more equal signs on the other side) occurrence of " = " to divide the 2 parts
+        # processed = isSame.split(" = ", maxsplit=1)
+
+        # # Get the value of the property
+        # value = eval(processed[1])
+
+        # # List of names, groups etc and operation "address"
+        # groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
+
+        # # Get all the operator "address"
+        # processed = processed[0].split(".")
+
+        # groupIndex = 0
+
+        # for i, addr in enumerate(processed[:-1]): # Ignore the last one since it is the property name changed
+        #     if "[" in addr:
+        #         # Get what is inside: ['groupname']
+        #         groupName = addr[addr.index("[")+1:addr.index("]")]
+        #         groupName = eval(groupName)
+                
+        #         if groupIndex <= 2:
+        #             groupsList[groupIndex][1] = groupName
+                
+        #         else:
+        #             groupsList.append(["other"+str(groupIndex-2), groupName])
+
+        #         groupIndex += 1
+
+        #         # Get the address without the group name (also getting everything after it because there might be some operations that contains it)
+        #         translated[0] = translated[0] + " " + addr[ 0 : addr.index("[") ] + addr[ addr.index("]")+1 : ]
+
+        #     else:
+        #         translated[0] = translated[0] + " " + addr
+
+        # groupsList.append([processed[-1], value])
+        # translated.append(dict(groupsList))
+
+        possindices = [index for index, char in enumerate( isSame.split("= ")[0] ) if char == '"']
+        endIndices = []
+        processed = isSame
+        groupIndex = 0
+        baseIndex = 0
         translated = [""]
-
-        # Get the first (because it might have more equal signs on the other side) occurrence of " = " to divide the 2 parts
-        processed = isSame.split(" = ", maxsplit=1)
-
-        # Get the value of the property
-        value = eval(processed[1])
-
+        
         # List of names, groups etc and operation "address"
         groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
 
-        # Get all the operator "address"
+        for index in possindices:
+            #if isSame[index-1] != "[" or ord(isSame[index-1]) != 92:
+            if ord(isSame[index-1]) == 92:
+                foundAnother = False
+                count = 0
+                i = 1
+                
+                while not foundAnother:
+                    if (ord(isSame[index-i]) == 92):
+                        count+=1
+                        i+=1
+                        
+                    else:
+                        foundAnother = True
+                        
+                if (count%2 == 0):
+                    # If even, it is the end of string
+
+                    endIndices.append(index)
+            
+            elif isSame[index+1] == "]":
+                endIndices.append(index)
+
+        print("OLHA O END INDICES: ", endIndices)
+
+        if len(endIndices) != 0:
+            # Means that it requires special treatment for the "["something"]"
+
+            for i, char in enumerate(isSame):
+                if (char == "[" and i > baseIndex):
+                    # At every first occurrence of [, means the start of a string
+
+                    # The first occ. of "[" may be related to a number, which means that the endIndices won't be considering:
+                    if (isSame[i + 1] != '"'):
+                        # Means it is a number
+                        
+                        closeIndex = isSame[i+1:].index("]")
+                        groupName = isSame[i+1:][:closeIndex]
+                        evalGroupName = eval(groupName)
+
+                    else:
+                        # Means it is a String
+
+                        closeIndex = endIndices[0]+1
+                        groupName = isSame[i+1 : closeIndex]
+                        evalGroupName = eval(groupName)
+                        baseIndex = closeIndex
+                        del endIndices[0]
+
+                    if groupIndex <= 2:
+                            groupsList[groupIndex][1] = evalGroupName
+
+                    else:
+                        groupsList.append(["other"+str(groupIndex-2), evalGroupName])
+
+                    processed = processed.replace("[" + groupName + "]", "")
+
+                    groupIndex += 1
+        
+        processed = processed.split(" = ")
+
+        # Get the value of the property
+        value = eval(processed[1])
+        
+        # Get the address of the operation
         processed = processed[0].split(".")
 
-        groupIndex = 0
-
-        for i, addr in enumerate(processed[:-1]): # Ignore the last one since it is the property name changed
-            if "[" in addr:
-                # Get what is inside: ['groupname']
-                groupName = addr[addr.index("[")+1:addr.index("]")]
-                groupName = eval(groupName)
-                
-                if groupIndex <= 2:
-                    groupsList[groupIndex][1] = groupName
-                
-                else:
-                    groupsList.append(["other"+str(groupIndex-2), groupName])
-
-                groupIndex += 1
-
-                # Get the address without the group name (also getting everything after it because there might be some operations that contains it)
-                translated[0] = translated[0] + " " + addr[ 0 : addr.index("[") ] + addr[ addr.index("]")+1 : ]
-
-            else:
-                translated[0] = translated[0] + " " + addr
+        for addr in processed[:-1]:
+            translated[0] += " " + addr
 
         groupsList.append([processed[-1], value])
         translated.append(dict(groupsList))
