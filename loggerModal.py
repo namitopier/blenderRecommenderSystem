@@ -529,7 +529,7 @@ def formatOperation2(operator, isSame):
                 splitted = part.split("=")
 
                 if (len(splitted) > 1):
-                    splitted[0] = '"' + splitted[0] + '"'
+                    splitted[0] = '"' + splitted[0].strip(" ") + '"'
                     splitted = splitted[0] + ":" + splitted[1] + ","
                 else:
                     splitted = splitted[0]  + ","
@@ -550,7 +550,7 @@ def formatOperation2(operator, isSame):
         processed = isSame.split(" = ", maxsplit=1)
 
         # Get the value of the property
-        value = processed[1]
+        value = eval(processed[1])
 
         # List of names, groups etc and operation "address"
         groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
@@ -564,6 +564,7 @@ def formatOperation2(operator, isSame):
             if "[" in addr:
                 # Get what is inside: ['groupname']
                 groupName = addr[addr.index("[")+1:addr.index("]")]
+                groupName = eval(groupName)
                 
                 if groupIndex <= 2:
                     groupsList[groupIndex][1] = groupName
@@ -603,7 +604,8 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
                     lastOp = operation
                     globalLastOp = lastOp
         
-        if len(operations) > numberOfOp:
+        if len(operations) > numberOfOp and lastOp[:3] == "bpy":
+            # Must consider only strings that start with "bpy" otherwise it is not a valid user action
         
             numberOfOp = len(operations)
 

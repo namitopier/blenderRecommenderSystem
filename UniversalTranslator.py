@@ -94,7 +94,7 @@ teste2 = '''
 #####################################################################################################################################
 ######################################################## To bpy.ops #################################################################
 
-teste3 = 'bpy.ops.object.editmode_toggle()'
+teste3 = 'bpy.ops.mesh.extrude_region_move(MESH_OT_extrude_region={"use_normal_flip":False, "use_dissolve_ortho_edges":False, "mirror":False}, TRANSFORM_OT_translate={"value":(3.72529e-09, 0, -0.288052), "orient_axis_ortho":"X", "orient_type":"NORMAL", "orient_matrix":((0.689899, 0.0450067, -0.722506), (0.715202, -0.196685, 0.670672), (-0.111921, -0.979433, -0.167882)), "orient_matrix_type":"NORMAL", "constraint_axis":(False, False, True), "mirror":False, "use_proportional_edit":False, "proportional_edit_falloff":"SMOOTH", "proportional_size":1, "use_proportional_connected":False, "use_proportional_projected":False, "snap":False, "snap_elements":{"INCREMENT"}, "use_snap_project":False, "snap_target":"CLOSEST", "use_snap_self":True, "use_snap_edit":True, "use_snap_nonedit":True, "use_snap_selectable":False, "snap_point":(0, 0, 0), "snap_align":False, "snap_normal":(0, 0, 0), "gpencil_strokes":False, "cursor_transform":False, "texture_space":False, "remove_on_cancel":False, "view2d_edge_pan":False, "release_confirm":False, "use_accurate":False, "use_automerge_and_split":False})'
 
 result = ""
 
@@ -114,7 +114,7 @@ else:
         splitted = part.split("=")
 
         if (len(splitted) > 1):
-            splitted[0] = '"' + splitted[0] + '"'
+            splitted[0] = '"' + splitted[0].strip(" ") + '"'
             splitted = splitted[0] + ":" + splitted[1] + ","
         else:
             splitted = splitted[0]  + ","
@@ -125,7 +125,7 @@ else:
     # Transforming into a dictionary
     result = eval("{" + result + "}")
 
-# print(result)
+# print(result["TRANSFORM_OT_translate"]["value"])
     
 #####################################################################################################################################
 ##################################################### To bpy.others #################################################################
@@ -155,13 +155,14 @@ bpy.data.particles["ParticleSettings"].use_advanced_hair = True
 
 
 teste4 = 'bpy.data.shape_keys["Key"].key_blocks["Key 1"].value = 0.104918'
+teste4 = 'bpy.data.materials["Material.001"].node_tree.nodes["Principled BSDF"].inputs[1].default_value = 0'
 
 
 translated = [""]
 # Get the first (because it might have more equal signs on the other side) occurrence of " = " to divide the 2 parts
 teste4 = teste4.split(" = ", maxsplit=1)
 # Get the value of the property
-value = teste4[1]
+value = eval(teste4[1])
 # List of names, groups etc and operation "address"
 groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
 addresses = [""]
@@ -172,8 +173,10 @@ groupIndex = 0
 
 for i, addr in enumerate(teste4[:-1]): # Ignore the last one since it is the property name changed
     if "[" in addr:
+        print("AAAAAAAA ", teste4)
         # Get what is inside: ['groupname']
         groupName = addr[addr.index("[")+1:addr.index("]")]
+        groupName = eval(groupName)
         
         if groupIndex <= 2:
             groupsList[groupIndex][1] = groupName
