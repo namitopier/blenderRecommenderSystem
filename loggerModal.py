@@ -14,10 +14,12 @@ import bpy, bmesh
 from bpy.props import IntProperty, FloatProperty
 import mathutils
 import math
+import re
 
 useLogger = False
 logCache = []
 numberOfOp = 0
+globalLastOp = None
 
 # ======================================================================================================================= #
 # ============================================= Cache Related =========================================================== #
@@ -403,8 +405,21 @@ def defaultCase(operator):
     
 
     else:
-        
+        global globalLastOp
+
         print("Not recognized operation: ", operator.name)
+
+        # Regular expression pattern to match arguments and values
+        arguments_pattern = re.compile(r"(\w+)\s*=\s*([^,)]+)")
+
+        # Extract arguments and values
+        arguments_matches = arguments_pattern.findall(globalLastOp)
+
+        # Create a list of alternating names and values
+        result_list = [item for sublist in arguments_matches for item in sublist]
+
+        print("Trying to translate: [%d, %d]" %(operator.name, result_list))
+
         return ["Not recognized operation: {}".format(operator.name)]
 
 operatorsDict = {
@@ -475,24 +490,102 @@ notOperatorsDict = {
 # ============================================ Util Functions =========================================================== #
 # ======================================================================================================================= #
 
-def formatOperation(operator, isSame = False):
+# def formatOperation(operator, isSame = False):
+#     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
+
+#     if (type(isSame) == bool):
+#         # Means it is an operator
+#         opName = operator.name
+#         result = operatorsDict.get(opName, defaultCase)(operator)
+
+#     else:
+#         # Means it is not an operator
+#         formattedAction = tuple([part.split('["')[0].split(" =")[0] for part in isSame.split('.')][:-1])
+#         result = notOperatorsDict.get(formattedAction, notOperatorDefaultCase)(isSame)
+
+#     return result
+
+def formatOperation2(operator, isSame):
     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
 
-    if (type(isSame) == bool):
-        # Means it is an operator
-        opName = operator.name
-        result = operatorsDict.get(opName, defaultCase)(operator)
+    if isSame[:7] == "bpy.ops":
+        # The structure of bpy.ops is different than the others
+
+        result = ""
+
+        # Removing all the characters before the first parenthesis
+        processed = isSame[isSame.index("(") + 1:-1]
+
+        # Some operations do not have properties (for example TODO: Edit mode)
+        if len(processed) == 0:
+            result = {}
+
+        else:
+            # Picking all the parts divided by commas
+            parts = processed.split(",")
+
+            for part in parts:
+                # Must replace all "=" to ":" and also include quotes so it is in the format of dictionary
+                splitted = part.split("=")
+
+                if (len(splitted) > 1):
+                    splitted[0] = '"' + splitted[0] + '"'
+                    splitted = splitted[0] + ":" + splitted[1] + ","
+                else:
+                    splitted = splitted[0]  + ","
+
+                result = result + splitted
+
+            # Transforming into a dictionary
+            result = eval("{" + result + "}")
+        
+        translated = [operator.name, result]
 
     else:
-        # Means it is not an operator
-        formattedAction = tuple([part.split('["')[0].split(" =")[0] for part in isSame.split('.')][:-1])
-        result = notOperatorsDict.get(formattedAction, notOperatorDefaultCase)(isSame)
+        # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
 
-    return result
+        translated = [""]
+
+        # Get the first (because it might have more equal signs on the other side) occurrence of " = " to divide the 2 parts
+        processed = isSame.split(" = ", maxsplit=1)
+
+        # Get the value of the property
+        value = processed[1]
+
+        # List of names, groups etc and operation "address"
+        groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
+
+        # Get all the operator "address"
+        processed = processed[0].split(".")
+
+        groupIndex = 0
+
+        for i, addr in enumerate(processed[:-1]): # Ignore the last one since it is the property name changed
+            if "[" in addr:
+                # Get what is inside: ['groupname']
+                groupName = addr[addr.index("[")+1:addr.index("]")]
+                
+                if groupIndex <= 2:
+                    groupsList[groupIndex][1] = groupName
+                
+                else:
+                    groupsList.append(["other"+str(groupIndex-2), groupName])
+
+                groupIndex += 1
+
+                # Get the address without the group name (also getting everything after it because there might be some operations that contains it)
+                translated[0] = translated[0] + " " + addr[ 0 : addr.index("[") ] + addr[ addr.index("]")+1 : ]
+
+            else:
+                translated[0] = translated[0] + " " + addr
+
+        groupsList.append([processed[-1], value])
+        translated.append(dict(groupsList))
+
+    return translated
 
 def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     # Receives 2 operations - old (formatted = [operator name, properties]) and new (= bpy.context.active_operator) - and compare them to return if they are the same operation (true or false)
-
 
     operations = getPerformedOperations(mouse_x, mouse_y)
     
@@ -501,35 +594,49 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     
         lastOp = operations[-1]
         global numberOfOp
+        global globalLastOp
 
         if (len(operations) - numberOfOp > 1):
             for operation in operations[-(len(operations) - numberOfOp):]:
                 if (operation[:3] == "bpy" and operation[:34] != 'bpy.data.window_managers["WinMan"]'):
                     # Pick the last bpy occurence, ignore if window change so it keeps the operation itself
                     lastOp = operation
-
-
-        if (len(operations) > numberOfOp and lastOp[:7] == "bpy.ops"):
-            # Means that an operation has been performed
+                    globalLastOp = lastOp
+        
+        if len(operations) > numberOfOp:
+        
             numberOfOp = len(operations)
-            
+
             if (newOp == None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
                 return True
-
-            else:
-                
-                return False
-
-        
-        elif (len(operations) > numberOfOp and lastOp[:3] == "bpy" and lastOp[:34] != 'bpy.data.window_managers["WinMan"]'):
-            # Detected something that is not an operation, so treat them according to the type of action
-
-            numberOfOp = len(operations)
-            return operations[-1]
+            
+            # If valid operation, return the string of the last operation performed
+            return lastOp
 
         else:
             return True
+        # if (len(operations) > numberOfOp and lastOp[:7] == "bpy.ops"):
+        #     # Means that an operation has been performed
+        #     numberOfOp = len(operations)
+            
+        #     if (newOp == None):
+        #         # Operations like undo (ctrl z) or other specific operations are recognized as none
+        #         return True
+
+        #     else:
+                
+        #         return False
+
+        
+        # elif (len(operations) > numberOfOp and lastOp[:3] == "bpy" and lastOp[:34] != 'bpy.data.window_managers["WinMan"]'):
+        #     # Detected something that is not an operation, so treat them according to the type of action
+
+        #     numberOfOp = len(operations)
+        #     return operations[-1]
+
+        # else:
+        #     return True
         
     else:
         return True
@@ -746,10 +853,10 @@ class ModalOperator(bpy.types.Operator):
 
             isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut,)
 
-            if (isSame != True):
+            if (type(isSame) != bool):
 
                 # Has to save in the formatted form because otherwise it will save the struct in the memory
-                self.currOperation = formatOperation(context.active_operator, isSame)
+                self.currOperation = formatOperation2(context.active_operator, isSame)
                 
                 if (len(self.currOperation) == 0): 
                     return {'PASS_THROUGH'}
@@ -995,3 +1102,51 @@ if __name__ == "__main__":
 
     # test call
     # bpy.ops.object.modal_operator('INVOKE_DEFAULT')
+
+'''
+globalLastOp = 'bpy.ops.mesh.extrude_region_move(
+    {
+    MESH_OT_extrude_region: {
+        "use_normal_flip":False,
+        "use_dissolve_ortho_edges":False,
+        "mirror":False
+        },
+    TRANSFORM_OT_translate: {
+        "value":(0, 0, 0.716544),
+        "orient_type":"NORMAL",
+        "orient_matrix":((0, 1, 0), (-1, 0, 0), (0, 0, 1)),
+        "orient_matrix_type":"NORMAL",
+        "constraint_axis":(False, False, True),
+        "mirror":False,
+        "use_proportional_edit":False,
+        "proportional_edit_falloff":"SMOOTH",
+        "proportional_size":1,
+        "use_proportional_connected":False,
+        "use_proportional_projected":False,
+        "snap":False,
+        "snap_elements":{"INCREMENT"},
+        "use_snap_project":False,
+        "snap_target":"CLOSEST",
+        "use_snap_self":True,
+        "use_snap_edit":True,
+        "use_snap_nonedit":True,
+        "use_snap_selectable":False,
+        "snap_point":(0, 0, 0),
+        "snap_align":False,
+        "snap_normal":(0, 0, 0),
+        "gpencil_strokes":False,
+        "cursor_transform":False,
+        "texture_space":False,
+        "remove_on_cancel":False,
+        "use_duplicated_keyframes":False,
+        "view2d_edge_pan":False,
+        "release_confirm":False,
+        "use_accurate":False,
+        "alt_navigation":True,
+        "use_automerge_and_split":False
+        }
+    }
+
+    MESH_OT_extrude_region: {"use_normal_flip":False, "use_dissolve_ortho_edges":False, "mirror":False}, TRANSFORM_OT_translate: {"value":(0, 0, 0.716544), "orient_type":"NORMAL", "orient_matrix":((0, 1, 0), (-1, 0, 0), (0, 0, 1)), "orient_matrix_type":"NORMAL", "constraint_axis":(False, False, True), "mirror":False, "use_proportional_edit":False, "proportional_edit_falloff":"SMOOTH", "proportional_size":1, "use_proportional_connected":False, "use_proportional_projected":False, "snap":False, "snap_elements":{"INCREMENT"}, "use_snap_project":False, "snap_target":"CLOSEST", "use_snap_self":True, "use_snap_edit":True, "use_snap_nonedit":True, "use_snap_selectable":False, "snap_point":(0, 0, 0), "snap_align":False, "snap_normal":(0, 0, 0), "gpencil_strokes":False, "cursor_transform":False, "texture_space":False, "remove_on_cancel":False, "use_duplicated_keyframes":False, "view2d_edge_pan":False, "release_confirm":False, "use_accurate":False, "alt_navigation":True, "use_automerge_and_split":False})'
+
+'''
