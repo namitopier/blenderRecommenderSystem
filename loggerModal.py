@@ -585,7 +585,7 @@ def formatOperation2(operator, isSame):
         # groupsList.append([processed[-1], value])
         # translated.append(dict(groupsList))
 
-        possindices = [index for index, char in enumerate( isSame.split("= ")[0] ) if char == '"']
+        possindices = [index for index, char in enumerate(isSame) if char == '"']
         endIndices = []
         processed = isSame
         groupIndex = 0
@@ -615,7 +615,7 @@ def formatOperation2(operator, isSame):
 
                     endIndices.append(index)
             
-            elif isSame[index+1] == "]":
+            elif index != ( len(isSame)-1 ) and isSame[index+1] == "]":
                 endIndices.append(index)
 
         print("OLHA O END INDICES: ", endIndices)
