@@ -41,6 +41,13 @@ def saveModifiersOnCache(modifiersList):
     
     cacheDict["allModifiers"] = modifiersList
 
+def saveObjectTransformOnCache(objName, scale, location, rotation):
+    # Saves transform properties of an object
+
+    cacheDict["allObjects"][objName]["scale"] = scale
+    cacheDict["allObjects"][objName]["location"] = location
+    cacheDict["allObjects"][objName]["rotation"] = rotation
+
 def saveObjectVerticesOnCache (vertDict):
     # Saves all the vertices of an object in the cache
 
@@ -49,6 +56,15 @@ def saveObjectVerticesOnCache (vertDict):
 
     else:
         print("No active object to save the vertices on the cache")
+
+def saveObjectFacesOnCache (facesDict):
+    # Saves all the faces of an object in the cache
+
+    if (bpy.context.active_object):
+        cacheDict["allObjects"][bpy.context.active_object.name]["faces"] = facesDict
+
+    else:
+        print("No active object to save the faces on the cache")
 
 def saveTempValueOnCache (tempValue):
     cacheDict["tempValue"] = tempValue
@@ -511,9 +527,11 @@ def formatOperation2(operator, isSame):
 # =======================================================================================================
                 
     if isSame[:7] == "bpy.ops":
-        # The structure of bpy.ops is different than the others
+        # The structure of bpy.ops is different than the others -> means it is actually an operation
 
         result = ""
+        activeObj = bpy.context.view_layer.objects.active
+        mode = None if activeObj == None else activeObj.mode 
 
         # Removing all the characters before the first parenthesis
         processed = isSame[isSame.index("(") + 1:-1]
@@ -540,8 +558,103 @@ def formatOperation2(operator, isSame):
 
             # Transforming into a dictionary
             result = eval("{" + result + "}")
-        
-        translated = [operator.name, result]
+
+        if (mode and mode == "EDIT" and activeObj.type == "MESH"):
+
+            allVertices = getAllVerticesOfObject()
+            allFaces = getAllFacesOfObject()
+            objsDict = getObjectsOnCache()
+            oldVertices = objsDict[activeObj.name]["vertices"]
+            oldFaces = objsDict[activeObj.name]["faces"]
+            vertDiff = []
+            facesDiff = []
+
+            oldVertNumber = len(oldVertices.keys())
+            oldFacesNumber = len(oldFaces.keys())
+            newVertNumber = len(allVertices.keys())
+            newFacesNumber = len(allFaces.keys())
+
+            if ( oldVertNumber != newVertNumber or oldFacesNumber != newFacesNumber ):
+                # Means it is an operation that added/removed vertices/faces. In this case, save which vertices/faces have been created/deleted
+
+                if (oldVertNumber < newVertNumber or oldFacesNumber < newFacesNumber):
+                    # Means created more vertices/faces
+
+                    for key in allVertices.keys():
+                        if (key not in oldVertices): vertDiff.append(key)
+                    
+                    result["newVertices"] = vertDiff
+
+                    for key in allFaces.keys():
+                        if (key not in oldFaces): facesDiff.append(key)
+                    
+                    result["newFaces"] = facesDiff
+
+                else:
+                    # Means deleted vertices
+
+                    for key in oldVertices.keys():
+                        if (key not in allVertices): vertDiff.append(key)
+                    
+                    result["deletedVertices"] = vertDiff
+
+                    for key in oldFaces.keys():
+                        if (key not in allFaces): facesDiff.append(key)
+                    
+                    result["deletedFaces"] = facesDiff
+                
+                saveObjectVerticesOnCache(allVertices)
+                saveObjectFacesOnCache(allFaces)
+
+                print("\n OBJECTS ON CACHE AFTER EDIT MODE: ", getObjectsOnCache())
+
+            else:
+                # Means it is an operation that just modified vertices
+
+                for key in allVertices.keys():
+                    if (allVertices[key] != oldVertices[key]): vertDiff.append(key)
+
+                if (len(vertDiff) != 0):
+                    # Means modification occurred
+
+                    saveObjectVerticesOnCache(allVertices)
+                    result["selectedVertices"] = vertDiff
+
+            # Saving all vertices in the result
+            result["vertices"] = allVertices
+            result["editMode"] = True
+
+
+        elif (mode and mode == "OBJECT"):
+            # Save new transform properties of objetcs if modified
+            cacheObjs = getObjectsOnCache()
+
+            if (activeObj.name in cacheObjs):
+                # Means it is an update
+
+                oldObj = cacheObjs[activeObj.name]
+                objProps = {"scale" : list(activeObj.scale),
+                            "location" : list(activeObj.location),
+                            "rotation" : list(activeObj.rotation_euler)}
+                
+                for key in objProps.keys():
+                    if (oldObj[key] != objProps[key]):
+                        # Add into dictionary result the modified property
+                        result["new" + key] = objProps[key]
+                
+                # Update cache with new values
+                saveObjectTransformOnCache(activeObj.name, objProps["scale"], objProps["location"], objProps["rotation"])
+
+            else:
+                # Means it is adding a new one
+                cacheObjs[activeObj.name] = getAllObjects(firstCall=True)[activeObj.name]
+                saveObjectsOnCache(cacheObjs)
+            
+            result["editMode"] = False
+
+            print("\n OBJECTS ON CACHE AFTER OBJ MODE: ", getObjectsOnCache())
+
+        translated = [operator.name, result, None if activeObj == None else activeObj.name]
 
     else:
         # # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
@@ -728,18 +841,30 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     else:
         return True
     
-def getAllObjects():
+def getAllObjects(firstCall = False):
     # Gets all the objects in the scene.
 
     objsDict = {}
+    changedMode = False
+
+    if firstCall:
+        activeObj = bpy.context.view_layer.objects.active
+
+        if activeObj and activeObj.mode == "OBJECT":
+            bpy.ops.object.editmode_toggle()
+            changedMode = True
 
     objs = bpy.context.scene.objects
     for obj in objs:
         objsDict[obj.name] = {  "scale": list(obj.scale),
                                 "location": list(obj.location),
                                 "rotation": list(obj.rotation_euler),
-                                "vertices": {},
+                                "vertices": {} if not firstCall or not activeObj else getAllVerticesOfObject(),
+                                "faces": {} if not firstCall or not activeObj else getAllFacesOfObject(),
                                 "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+
+    if changedMode:
+        bpy.ops.object.editmode_toggle()
 
     return objsDict
 
@@ -817,6 +942,26 @@ def getAllVerticesOfObject():
         print("Object is not a mesh.")
         return None
     
+def getAllFacesOfObject():
+    # Gets all faces of the active object. Returns dictionary in the format:
+    # {face index: center median, .....}
+
+    activeObj = bpy.context.active_object
+
+    if activeObj.type == 'MESH':
+        
+        faces_dict = {}
+
+        bm = bmesh.from_edit_mesh(activeObj.data)
+
+        for face in bm.faces:
+            faces_dict[face.index] = list(face.calc_center_median())
+        return faces_dict
+
+    else:
+        print("Object is not a mesh.")
+        return None
+    
 def getPerformedOperations(mouse_x = 0, mouse_y = 0):
     # Gets the list of performed operations
 
@@ -865,6 +1010,9 @@ def getPerformedOperations(mouse_x = 0, mouse_y = 0):
 # ======================================================================================================================= #
 
 class Tutorial:
+
+    count = 0
+
     def __init__(self, tutorialSteps = None):
         if tutorialSteps is not None:
             self.loadTutorialSteps(tutorialSteps)
@@ -878,7 +1026,12 @@ class Tutorial:
         # Receives a list containing [operator.name, properties]
 
         self.tutorialSteps.append(step)
-        print(self.tutorialSteps)
+        self.count = 0
+        print("\n============================= LIST OF OPS")
+        for op in self.tutorialSteps:
+            print("")
+            print(self.count, " - ",op)
+            self.count += 1
 
         global logCache
         logCache = self.tutorialSteps
@@ -994,7 +1147,7 @@ class ModalOperator(bpy.types.Operator):
             #     return {'RUNNING_MODAL'}
 
             # Fill the cache with the current objects and modifiers on the scene
-            objsDict = getAllObjects()
+            objsDict = getAllObjects(firstCall=True)
             modifiersList = getAllModifiers()
 
             saveModifiersOnCache(modifiersList)
@@ -1004,6 +1157,7 @@ class ModalOperator(bpy.types.Operator):
             if(bpy.context.active_object and bpy.context.active_object.mode == 'EDIT'):
                 print("SALVANDO NO CACHE")
                 saveObjectVerticesOnCache(getAllVerticesOfObject())
+                saveObjectFacesOnCache(getAllFacesOfObject())
 
             # Update the number of operations performed so far
             global numberOfOp
