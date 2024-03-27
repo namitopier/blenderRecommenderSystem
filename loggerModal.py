@@ -606,8 +606,6 @@ def formatOperation2(operator, isSame):
                 saveObjectVerticesOnCache(allVertices)
                 saveObjectFacesOnCache(allFaces)
 
-                print("\n OBJECTS ON CACHE AFTER EDIT MODE: ", getObjectsOnCache())
-
             else:
                 # Means it is an operation that just modified vertices
 
@@ -664,8 +662,6 @@ def formatOperation2(operator, isSame):
             
             result["editMode"] = False
 
-            print("\n OBJECTS ON CACHE AFTER OBJ MODE: ", getObjectsOnCache())
-
         translated = [operator.name, result, None if activeObj == None else activeObj.name]
 
     else:
@@ -710,6 +706,8 @@ def formatOperation2(operator, isSame):
         # groupsList.append([processed[-1], value])
         # translated.append(dict(groupsList))
 
+        activeObj = bpy.context.view_layer.objects.active
+
         possindices = [index for index, char in enumerate(isSame) if char == '"']
         endIndices = []
         processed = isSame
@@ -742,8 +740,6 @@ def formatOperation2(operator, isSame):
             
             elif index != ( len(isSame)-1 ) and isSame[index+1] == "]":
                 endIndices.append(index)
-
-        print("OLHA O END INDICES: ", endIndices)
 
         if len(endIndices) != 0:
             # Means that it requires special treatment for the "["something"]"
@@ -790,8 +786,10 @@ def formatOperation2(operator, isSame):
         for addr in processed[:-1]:
             translated[0] += " " + addr
 
+        groupsList = groupsList[0:groupIndex]
         groupsList.append([processed[-1], value])
         translated.append(dict(groupsList))
+        translated.append(None if not activeObj else activeObj.name)
 
     return translated
 
@@ -1016,6 +1014,50 @@ def getPerformedOperations(mouse_x = 0, mouse_y = 0):
 
     return clipboard.split("\n")[:-1] # Has to exclude the last one since it will be "" 
 
+def getFilteredProps (translatedOp, additionalProps = []):
+    # Filters automatically the important values to track + additional values decided by the user
+
+    # By default, it will consider all the first 2 props of all nested dicts of the properties.
+
+    fixedValues = [ "newVertices",
+                    "newFaces",
+                    "deletedVertices",
+                    "deletedFaces",
+                    "selectedVertices",
+                    "vertices",
+                    "editMode",
+                    "newscale",
+                    "newlocation",
+                    "newrotation",
+                    "selectedObjs",
+                    "editMode",
+                    "group",
+                    "subgroup",
+                    "propIndex"]
+    
+    fixedValues += additionalProps
+    props = translatedOp[1]
+    filtered = {}
+    included = 0
+
+    for prop in list(props.keys()):
+        
+        if included != 2:
+            if type(props[prop]) == dict and prop not in fixedValues:
+                # Means nested dict
+                for nestedProp in list(props[prop].keys())[:2]:
+                    filtered[nestedProp] = props[prop][nestedProp]
+                
+                included += 1
+
+            elif prop not in fixedValues:
+                filtered[prop] = props[prop]
+                included += 1
+
+        if prop in fixedValues:
+            filtered[prop] = props[prop]
+
+    return [translatedOp[0], filtered, translatedOp[2]]
 
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
@@ -1042,7 +1084,7 @@ class Tutorial:
         print("\n============================= LIST OF OPS")
         for op in self.tutorialSteps:
             print("")
-            print(self.count, " - ",op)
+            print(self.count, " - ",getFilteredProps(op))
             self.count += 1
 
         global logCache
