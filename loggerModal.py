@@ -632,18 +632,30 @@ def formatOperation2(operator, isSame):
             if (activeObj.name in cacheObjs):
                 # Means it is an update
 
-                oldObj = cacheObjs[activeObj.name]
-                objProps = {"scale" : list(activeObj.scale),
-                            "location" : list(activeObj.location),
-                            "rotation" : list(activeObj.rotation_euler)}
+                selectedObjs = bpy.context.selected_objects
+
+                for i, obj in enumerate(selectedObjs):
+                    # There can be multiple objects being selected
+
+                    oldObj = cacheObjs[obj.name]
+                    objProps = {"scale" : list(obj.scale),
+                                "location" : list(obj.location),
+                                "rotation" : list(obj.rotation_euler)}
+                    
+                    if(obj.name == activeObj.name):
+                        # If active, include new properties in the translated operation
+
+                        for key in objProps.keys():
+                            if (oldObj[key] != objProps[key]):
+                                # Add into dictionary result the modified property
+                                result["new" + key] = objProps[key]
+                    
+                    # Update cache with new values
+                    saveObjectTransformOnCache(obj.name, objProps["scale"], objProps["location"], objProps["rotation"])
                 
-                for key in objProps.keys():
-                    if (oldObj[key] != objProps[key]):
-                        # Add into dictionary result the modified property
-                        result["new" + key] = objProps[key]
-                
-                # Update cache with new values
-                saveObjectTransformOnCache(activeObj.name, objProps["scale"], objProps["location"], objProps["rotation"])
+                if (len(selectedObjs) > 1):
+                    result["selectedObjs"] = [obj.name for obj in selectedObjs]
+
 
             else:
                 # Means it is adding a new one
