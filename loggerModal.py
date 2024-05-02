@@ -536,7 +536,7 @@ def formatOperation2(operator, isSame):
         # Removing all the characters before the first parenthesis
         processed = isSame[isSame.index("(") + 1:-1]
 
-        # Some operations do not have properties (for example TODO: Edit mode)
+        # Some operations do not have properties
         if len(processed) == 0:
             result = {}
 
@@ -1014,7 +1014,7 @@ def getPerformedOperations(mouse_x = 0, mouse_y = 0):
 
     return clipboard.split("\n")[:-1] # Has to exclude the last one since it will be "" 
 
-def getFilteredProps (translatedOp, additionalProps = []):
+def getFilteredOp (translatedOp, additionalProps = []):
     # Filters automatically the important values to track + additional values decided by the user
 
     # By default, it will consider all the first 2 props of all nested dicts of the properties.
@@ -1057,7 +1057,7 @@ def getFilteredProps (translatedOp, additionalProps = []):
         if prop in fixedValues:
             filtered[prop] = props[prop]
 
-    return [translatedOp[0], filtered, translatedOp[2]]
+    return [translatedOp[0], filtered, translatedOp[2], additionalProps]
 
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
@@ -1079,12 +1079,13 @@ class Tutorial:
     def addTutorialStep(self, step):
         # Receives a list containing [operator.name, properties]
 
-        self.tutorialSteps.append(step)
+        filteredOp = getFilteredOp(step)
+        self.tutorialSteps.append(filteredOp)
         self.count = 0
         print("\n============================= LIST OF OPS")
         for op in self.tutorialSteps:
             print("")
-            print(self.count, " - ",getFilteredProps(op))
+            print(self.count, " - ", op)
             self.count += 1
 
         global logCache
