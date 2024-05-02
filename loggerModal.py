@@ -15,11 +15,14 @@ from bpy.props import IntProperty, FloatProperty
 import mathutils
 import math
 import re
+import os
 
 useLogger = False
 logCache = []
 numberOfOp = 0
 globalLastOp = None
+tutorialMode = False
+tutFileName = ""
 
 # ======================================================================================================================= #
 # ============================================= Cache Related =========================================================== #
@@ -1067,9 +1070,9 @@ class Tutorial:
 
     count = 0
 
-    def __init__(self, tutorialSteps = None):
-        if tutorialSteps is not None:
-            self.loadTutorialSteps(tutorialSteps)
+    def __init__(self, tutorialName = None):
+        if tutorialName is not None:
+            self.loadTutorialSteps(tutorialName)
 
         else:
             self.tutorialSteps = []
@@ -1091,11 +1094,15 @@ class Tutorial:
         global logCache
         logCache = self.tutorialSteps
 
-    def loadTutorialSteps(self, tutorialSteps):
+    def loadTutorialSteps(self, tutorialName):
         # Receives a list with all the tutorial steps: [[operator.name 1, properties 1], [operator.name 2, properties 2] ...]
+        file_path = bpy.path.abspath('//'+tutorialName)
 
-        self.tutorialSteps = tutorialSteps
-        print(self.tutorialSteps)
+        # Open the file in read mode
+        with open(file_path, 'r') as file:
+            # Read each line using a loop
+            for line in file:
+                self.tutorialSteps.append( eval(line.strip()) )
 
     def getNextStep(self):
         return self.tutorialSteps[self.state]
@@ -1103,7 +1110,13 @@ class Tutorial:
     def validateStep(self, step):
         # Validates the step passed [operator.name, properties] with the current state of the tutorial
 
-        if step == self.tutorialSteps[self.state]:
+        # Get the current step
+        currentStep = self.tutorialSteps[self.state]
+
+        # Get the filtered operation considering the additional props tracked (last element of saved step)
+        filteredOp = getFilteredOp(step, currentStep[-1])
+
+        if filteredOp == self.tutorialSteps[self.state]:
             if(self.state == len(self.tutorialSteps) - 1):
                 return ['end']
             
@@ -1111,7 +1124,7 @@ class Tutorial:
                 self.state += 1
                 return ['correct']
         else:
-            return ['wrong', step, self.tutorialSteps[self.state]] # List with wrong and correct operation
+            return ['wrong', filteredOp, self.tutorialSteps[self.state]] # List with wrong and correct operation
         
     def getProgress(self):
         # Returns the percentage of completeness of the tutorial
@@ -1134,6 +1147,7 @@ class ModalOperator(bpy.types.Operator):
     prevOperation = None
     currOperation = None
     tut = None
+    tutorialMode = False
 
     def modal(self, context, event):
 
@@ -1146,7 +1160,7 @@ class ModalOperator(bpy.types.Operator):
 
         elif event.type in {'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
 
-            isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut,)
+            isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut)
 
             if (type(isSame) != bool):
 
@@ -1156,18 +1170,22 @@ class ModalOperator(bpy.types.Operator):
                 if (len(self.currOperation) == 0): 
                     return {'PASS_THROUGH'}
 
-                self.tut.addTutorialStep(self.currOperation)
+                if self.tutorialMode:
+                    result = self.tut.validateStep(self.currOperation)
+                    if (result == ['correct']):
+                        print("============================ Correct operation!")
+                        print("============================ Your progress: ", self.tut.getProgress() * 100, " %")
+                        print("\n============================ NEXT STEP: Perform the following operation: ", self.tut.getNextStep())
+                    elif(result == ['end']):
+                        print("============================ Tutorial Finished!")
+                    else:
+                        print("============================ WRONG OPERATION!")
+                        print("============================ Expected operation: ", result[2])
+                        print("============================ Got: ", result[1])
+                
+                else:
+                    self.tut.addTutorialStep(self.currOperation)
 
-                # result = self.tut.validateStep(self.currOperation)
-                # if (result == ['correct']):
-                #     print("============================ Correct operation!")
-                #     print("============================ Your progress: ", self.tut.getProgress() * 100, " %")
-                #     print("\n============================ NEXT STEP: Perform the following operation: ", self.tut.getNextStep())
-                # elif(result == ['end']):
-                #     print("============================ Tutorial Finished!")
-                # else:
-                #     print("============================ WRONG OPERATION!")
-                #     print("============================ Expected operation: ", result[2])
 
                 self.prevOperation = self.currOperation
 
@@ -1193,8 +1211,16 @@ class ModalOperator(bpy.types.Operator):
     def invoke(self, context, event):
         if context.object or context.object == None:
 
+            global tutFileName
+            global tutorialMode
+
             self.tut = Tutorial()
             # self.tut.loadCubePyramidTutorial()
+
+            if tutorialMode:
+                # If in tutorial mode, has to load the tutorial specified by name
+                self.tut.loadTutorialSteps(tutFileName)
+                self.tutorialMode = True
 
             context.window_manager.modal_handler_add(self)
 
@@ -1210,7 +1236,7 @@ class ModalOperator(bpy.types.Operator):
 
             # If on edit mode, save all its vertices already in the cache
             if(bpy.context.active_object and bpy.context.active_object.mode == 'EDIT'):
-                print("SALVANDO NO CACHE")
+                print("SAVING ON CACHE")
                 saveObjectVerticesOnCache(getAllVerticesOfObject())
                 saveObjectFacesOnCache(getAllFacesOfObject())
 
@@ -1258,6 +1284,30 @@ class StopLogger(bpy.types.Operator):
 
     def execute(self, context):
         stopLogger(context)
+        return {'FINISHED'}
+    
+class StartTutorial(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "object.start_tutorial"
+    bl_label = "Load tutorial by name"
+
+    @classmethod
+    def poll(cls, context):
+        # Can only click here if logger hasn't started
+        
+        global useLogger
+        return not useLogger
+        # return context.active_object is not None
+
+    def execute(self, context):
+        fileName = context.scene.tutorial_filename
+        file_path = bpy.path.abspath('//'+fileName)
+
+        if not os.path.exists(file_path):
+            self.report({'ERROR'}, "File does not exist at the specified path.")
+            return {'CANCELLED'}
+        
+        startLogger(context, tutMode=True, fileName = fileName)
         return {'FINISHED'}
     
 class LayoutDemoPanel(bpy.types.Panel):
@@ -1320,6 +1370,16 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.scale_y = 3.0
         row.operator("object.stop_logger")
 
+        # Load Tutorial
+        layout.label(text="Load a tutorial:")
+        row = layout.row()
+        row.label(text = "File Name:")
+        row = layout.row()
+        row.prop(context.scene, "tutorial_filename", text="")
+        row = layout.row()
+        row.scale_y = 3.0
+        row.operator("object.start_tutorial")
+
         # Different sizes in a row
 #        layout.label(text="Different button sizes:")
 #        row = layout.row(align=True)
@@ -1350,8 +1410,15 @@ def format_list_as_string(my_list):
     result += "]"
     return result
 
-def startLogger(context):
+def startLogger(context, tutMode = False, fileName = ""):
     global useLogger
+    global tutorialMode
+    global tutFileName
+
+    if (tutMode):
+        tutFileName = fileName
+        tutorialMode = True
+    
     useLogger = True
     bpy.ops.object.modal_operator('INVOKE_DEFAULT')
     print("============================================== LOGGER STARTED ==============================================")
@@ -1380,17 +1447,21 @@ def menu_func(self, context):
 def register():
     bpy.utils.register_class(StartLogger)
     bpy.utils.register_class(StopLogger)
+    bpy.utils.register_class(StartTutorial)
     bpy.utils.register_class(LayoutDemoPanel)
     bpy.utils.register_class(ModalOperator)
     bpy.types.VIEW3D_MT_object.append(menu_func)
+    bpy.types.Scene.tutorial_filename = bpy.props.StringProperty(name="Tutorial Filename", default="")
 
 
 def unregister():
     bpy.utils.unregister_class(StartLogger)
     bpy.utils.unregister_class(StopLogger)
+    bpy.utils.unregister_class(StartTutorial)
     bpy.utils.unregister_class(LayoutDemoPanel)
     bpy.utils.unregister_class(ModalOperator)
     bpy.types.VIEW3D_MT_object.remove(menu_func)
+    del bpy.types.Scene.tutorial_filename
 
 
 if __name__ == "__main__":
