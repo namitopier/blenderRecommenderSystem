@@ -44,12 +44,16 @@ def saveModifiersOnCache(modifiersList):
     
     cacheDict["allModifiers"] = modifiersList
 
-def saveObjectTransformOnCache(objName, scale, location, rotation):
+def saveObjectTransformOnCache(objName, scale = None, location = None, rotation = None, objProps = None):
     # Saves transform properties of an object
 
-    cacheDict["allObjects"][objName]["scale"] = scale
-    cacheDict["allObjects"][objName]["location"] = location
-    cacheDict["allObjects"][objName]["rotation"] = rotation
+    if objName not in cacheDict["allObjects"]:
+        cacheDict["allObjects"][objName] = objProps
+
+    else:   
+        cacheDict["allObjects"][objName]["scale"] = scale
+        cacheDict["allObjects"][objName]["location"] = location
+        cacheDict["allObjects"][objName]["rotation"] = rotation
 
 def saveObjectVerticesOnCache (vertDict):
     # Saves all the vertices of an object in the cache
@@ -567,6 +571,7 @@ def formatOperation2(operator, isSame):
             allVertices = getAllVerticesOfObject()
             allFaces = getAllFacesOfObject()
             objsDict = getObjectsOnCache()
+            print("AAAAAAAAAAAAAAAAAAAAAA ", objsDict[activeObj.name])
             oldVertices = objsDict[activeObj.name]["vertices"]
             oldFaces = objsDict[activeObj.name]["faces"]
             vertDiff = []
@@ -638,22 +643,41 @@ def formatOperation2(operator, isSame):
                 for i, obj in enumerate(selectedObjs):
                     # There can be multiple objects being selected
 
-                    oldObj = cacheObjs[obj.name]
-                    objProps = {"scale" : list(obj.scale),
-                                "location" : list(obj.location),
-                                "rotation" : list(obj.rotation_euler)}
-                    
-                    if(obj.name == activeObj.name):
-                        # If active, include new properties in the translated operation
+                    if obj.name in cacheObjs:
+                        # There are some operations that create new objects from edit mode (like separate)
 
-                        for key in objProps.keys():
-                            if (oldObj[key] != objProps[key]):
-                                # Add into dictionary result the modified property
-                                result["new" + key] = objProps[key]
+                        oldObj = cacheObjs[obj.name]
+                        objProps = {"scale" : list(obj.scale),
+                                    "location" : list(obj.location),
+                                    "rotation" : list(obj.rotation_euler)}
+                        
+                        if(obj.name == activeObj.name):
+                            # If active, include new properties in the translated operation
+
+                            for key in objProps.keys():
+                                if (oldObj[key] != objProps[key]):
+                                    # Add into dictionary result the modified property
+                                    result["new" + key] = objProps[key]
+                        
+                        # Update cache with new values
+                        saveObjectTransformOnCache(obj.name, objProps["scale"], objProps["location"], objProps["rotation"])
                     
-                    # Update cache with new values
-                    saveObjectTransformOnCache(obj.name, objProps["scale"], objProps["location"], objProps["rotation"])
-                
+                    else:
+                        bpy.context.view_layer.objects.active = obj
+                        # bpy.ops.object.select_all(action='DESELECT')
+                        bpy.ops.object.editmode_toggle()
+
+                        objProps = {"scale" : list(obj.scale),
+                                    "location" : list(obj.location),
+                                    "rotation" : list(obj.rotation_euler),
+                                    "vertices": getAllVerticesOfObject(),
+                                    "faces": getAllFacesOfObject(),
+                                    "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+                        
+                        bpy.ops.object.editmode_toggle()
+
+                        saveObjectTransformOnCache(obj.name, objProps=objProps)
+
                 if (len(selectedObjs) > 1):
                     result["selectedObjs"] = [obj.name for obj in selectedObjs]
 
@@ -1062,9 +1086,47 @@ def getFilteredOp (translatedOp, additionalProps = []):
 
     return [translatedOp[0], filtered, translatedOp[2], additionalProps]
 
+def highlightVertices(object_name, vertex_indices, highlight_color):
+    # Switch to object mode
+    bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Get the mesh data
+    mesh = bpy.data.objects[object_name].data
+    
+    # Ensure vertex colors are enabled
+    if not mesh.vertex_colors:
+        mesh.vertex_colors.new()
+    
+    # Assign highlight color to vertices
+    vertex_colors = mesh.vertex_colors.active.data
+    for loop_index, loop in enumerate(mesh.loops):
+        if loop.vertex_index in vertex_indices:
+            for i in range(3):
+                vertex_colors[loop_index].color[i] = highlight_color[i]
+
+def clear_vertex_colors(object_name):
+    # Switch to object mode
+    bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Get the mesh data
+    mesh = bpy.data.objects[object_name].data
+    
+    # Ensure vertex colors are enabled
+    if not mesh.vertex_colors:
+        return
+    
+    # Iterate over all vertex colors and set them to white
+    for vertex_color_layer in mesh.vertex_colors:
+        for loop_color in vertex_color_layer.data:
+            loop_color.color = (1.0, 1.0, 1.0, 1.0)  # Set to white
+
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
 # ======================================================================================================================= #
+
+
 
 class Tutorial:
 
@@ -1105,7 +1167,21 @@ class Tutorial:
                 self.tutorialSteps.append( eval(line.strip()) )
 
     def getNextStep(self):
-        return self.tutorialSteps[self.state]
+        nextStep = self.tutorialSteps[self.state]
+
+        print("AAAAAAAAAAAAAAAAAAAAAAAAAAA ", self.tutorialSteps[self.state-1])
+
+        if (self.state != 0 and self.tutorialSteps[self.state-1][1]["editMode"] and ("selectedVertices" in self.tutorialSteps[self.state-1][1]) and len(self.tutorialSteps[self.state-1][1]["selectedVertices"]) > 0):
+            object_name = self.tutorialSteps[self.state-1][-2]  # Replace with the name of your object
+            clear_vertex_colors(object_name)
+        
+        if (nextStep[1]["editMode"] and ("selectedVertices" in nextStep[1]) and len(nextStep[1]["selectedVertices"]) > 0):
+            object_name = nextStep[-2] 
+            vertex_indices = nextStep[1]["selectedVertices"]
+            highlight_color = (0.0, 1.0, 0.0)  # RGB
+            highlightVertices(object_name, vertex_indices, highlight_color)
+        
+        return nextStep
 
     def validateStep(self, step):
         # Validates the step passed [operator.name, properties] with the current state of the tutorial
