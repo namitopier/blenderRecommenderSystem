@@ -1041,7 +1041,7 @@ def getPerformedOperations(mouse_x = 0, mouse_y = 0):
 
     return clipboard.split("\n")[:-1] # Has to exclude the last one since it will be "" 
 
-def getFilteredOp (translatedOp, additionalInfo = {}):
+def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
     # Filters automatically the important values to track + additional values decided by the user
 
     # By default, it will consider all the first 2 props of all nested dicts of the properties.
