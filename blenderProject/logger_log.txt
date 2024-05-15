@@ -1,3 +1,1 @@
-['Add Cube', {'size': 2, 'enter_editmode': False, 'editMode': False}, 'Cube', {'tolerance': 10}]
-['Add Cube', {'editMode': False}, 'Cube', {'tolerance': 10}]
-['Delete', {'use_global': False, 'confirm': False}, None, {'tolerance': 10}]
+['Move', {'value': (0, 0, 1.09318), 'orient_axis_ortho': 'X', 'newlocation': [0.0, 0.0, 1.0911531448364258], 'editMode': False}, 'Cube', {'tolerance': 10}]

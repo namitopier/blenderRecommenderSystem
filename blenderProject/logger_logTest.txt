@@ -1,0 +1,4 @@
+['Move', {'value': (0, 0, 1.05431), 'orient_axis_ortho': 'X', 'newlocation': [0.0, 0.0, 1.054309606552124], 'editMode': False}, 'Cube', {'tolerance': 100}]
+['Toggle Edit Mode', {'vertices': {0: [-1.0, -1.0, -1.0], 1: [-1.0, -1.0, 1.0], 2: [-1.0, 1.0, -1.0], 3: [-1.0, 1.0, 1.0], 4: [1.0, -1.0, -1.0], 5: [1.0, -1.0, 1.0], 6: [1.0, 1.0, -1.0], 7: [1.0, 1.0, 1.0]}, 'editMode': True}, 'Cube', {'tolerance': 10}]
+['Move', {'value': (0, 0, -0.569809), 'orient_axis_ortho': 'X', 'selectedVertices': [3], 'vertices': {0: [-1.0, -1.0, -1.0], 1: [-1.0, -1.0, 1.0], 2: [-1.0, 1.0, -1.0], 3: [-1.0, 1.0, 0.4301912188529968], 4: [1.0, -1.0, -1.0], 5: [1.0, -1.0, 1.0], 6: [1.0, 1.0, -1.0], 7: [1.0, 1.0, 1.0]}, 'editMode': True}, 'Cube', {'tolerance': 10}]
+['Toggle Edit Mode', {'editMode': False}, 'Cube', {'tolerance': 10}]
