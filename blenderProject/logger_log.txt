@@ -1,1 +1,0 @@
-['Move', {'value': (0, 0, 1.09318), 'orient_axis_ortho': 'X', 'newlocation': [0.0, 0.0, 1.0911531448364258], 'editMode': False}, 'Cube', {'tolerance': 10}]
