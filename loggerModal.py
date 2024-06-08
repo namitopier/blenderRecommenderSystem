@@ -16,6 +16,7 @@ import mathutils
 import math
 import re
 import os
+import numpy as np
 
 useLogger = False
 logCache = []
@@ -23,6 +24,7 @@ numberOfOp = 0
 globalLastOp = None
 tutorialMode = False
 tutFileName = ""
+ignoreLastOp = False
 
 # ======================================================================================================================= #
 # ============================================= Cache Related =========================================================== #
@@ -571,7 +573,6 @@ def formatOperation2(operator, isSame):
             allVertices = getAllVerticesOfObject()
             allFaces = getAllFacesOfObject()
             objsDict = getObjectsOnCache()
-            print("AAAAAAAAAAAAAAAAAAAAAA ", objsDict[activeObj.name])
             oldVertices = objsDict[activeObj.name]["vertices"]
             oldFaces = objsDict[activeObj.name]["faces"]
             vertDiff = []
@@ -824,12 +825,18 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     # Receives 2 operations - old (formatted = [operator name, properties]) and new (= bpy.context.active_operator) - and compare them to return if they are the same operation (true or false)
 
     operations = getPerformedOperations(mouse_x, mouse_y)
+    global ignoreLastOp
+    global numberOfOp
+
+    if ignoreLastOp:
+        numberOfOp = len(operations)
+        ignoreLastOp = False
+        return True
     
     if (len(operations) != 0):
         # It happens sometimes that the operations list comes empty
     
         lastOp = operations[-1]
-        global numberOfOp
         global globalLastOp
 
         if (len(operations) - numberOfOp > 1):
@@ -843,6 +850,7 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
             # Must consider only strings that start with "bpy" otherwise it is not a valid user action
         
             numberOfOp = len(operations)
+            print("#######################  len(operations) > numberOfOp and lastOp = ", lastOp)
 
             if (newOp == None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
@@ -1057,7 +1065,6 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
                     "newlocation",
                     "newrotation",
                     "selectedObjs",
-                    "editMode",
                     "group",
                     "subgroup",
                     "propIndex"]
@@ -1091,41 +1098,183 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
 
     return [translatedOp[0], filtered, translatedOp[2], additionalInfo]
 
-def highlightVertices(object_name, vertex_indices, highlight_color):
-    # Switch to object mode
-    bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
-    bpy.ops.object.mode_set(mode='OBJECT')
+# def highlightVertices(object_name, vertex_indices, highlight_color):
+def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
+    # objectName = Name of the target object
+    # firstPos = dictionary containing all the selected vertices position before the operation
+    # secondPos = dictionary containing all the selected vertices position after the operation
+    # This function creates spheres to indicate the indices user should be moving
     
-    # Get the mesh data
-    mesh = bpy.data.objects[object_name].data
-    
-    # Ensure vertex colors are enabled
-    if not mesh.vertex_colors:
-        mesh.vertex_colors.new()
-    
-    # Assign highlight color to vertices
-    vertex_colors = mesh.vertex_colors.active.data
-    for loop_index, loop in enumerate(mesh.loops):
-        if loop.vertex_index in vertex_indices:
-            for i in range(3):
-                vertex_colors[loop_index].color[i] = highlight_color[i]
+    highlightType = "normal"
+    firstLen = len(list(firstPos.values()))
+    secondLen = len(list(secondPos.values()))
+    keys = list(firstPos.keys())
 
-def clear_vertex_colors(object_name):
-    # Switch to object mode
-    bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
-    bpy.ops.object.mode_set(mode='OBJECT')
+    if firstLen < secondLen:
+        # Means addition of new vertices
+        keys = list(secondPos.keys())
+        highlightType = "add"
     
-    # Get the mesh data
-    mesh = bpy.data.objects[object_name].data
+    elif firstLen > secondLen:
+        # Means deletion of vertices
+        highlightType = "delete"
+
+    # Setting the objectName as active
+    obj = bpy.data.objects[objectName]
+    bpy.context.view_layer.objects.active = obj
+    objLocation = list(obj.location)
+    activeObj = bpy.context.view_layer.objects.active
+
+    # Getting the mode (OBJECT or EDIT)
+    mode = activeObj.mode
+
+    if mode == "EDIT":
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ HIGHLIGHT = ", highlightType)
+
+    if highlightType == "normal":
+        for i, key in enumerate(keys):
+                initialName = str(key) + ": Initial Pos"
+                finalName = str(key) + ": Final Pos"
+                initialLoc = [x + y for x, y in zip(firstPos[key], objLocation)]
+                finalLoc = [x + y for x, y in zip(secondPos[key], objLocation)]
+
+                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=initialLoc, scale=(1, 1, 1))
+                bpy.context.object.show_name = True
+                bpy.context.object.show_in_front = True
+                # bpy.context.object.hide_select = True
+                bpy.context.object.name = initialName
+                
+                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=finalLoc, scale=(1, 1, 1))
+                bpy.context.object.show_name = True
+                bpy.context.object.show_in_front = True
+                # bpy.context.object.hide_select = True
+                bpy.context.object.name = finalName
+        
+    elif highlightType in ["add", "delete"]:
+        # The vertices keys change, so have to compare them by value rather than by key
+
+        differences = findVertsDiff(list(firstPos.values()), list(secondPos.values()), tolerance)
+        suffix = ": Add new vert" if highlightType == "add" else ": Remove this vert"
+
+        for i, difference in enumerate(differences):
+
+            name = str(i) + suffix
+            location = [x + y for x, y in zip(difference, objLocation)]
+
+            bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
+            bpy.context.object.show_name = True
+            bpy.context.object.show_in_front = True
+            # bpy.context.object.hide_select = True
+            bpy.context.object.name = name
+
+    # else:
+    #     name = str(key) + ": Remove this vert"
+    #     location = [x + y for x, y in zip(firstPos[key], objLocation)]
+
+    #     bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
+    #     bpy.context.object.show_name = True
+    #     bpy.context.object.show_in_front = True
+    #     # bpy.context.object.hide_select = True
+    #     bpy.context.object.name = name
+
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.data.objects[objectName].select_set(True)
+
+    # # Switch to object mode
+    # bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
+    # mode = bpy.context.view_layer.objects.active.mode
+    # if mode == "EDIT":
+    #     bpy.ops.object.mode_set(mode='OBJECT')
     
-    # Ensure vertex colors are enabled
-    if not mesh.vertex_colors:
-        return
+    # # Get the mesh data
+    # mesh = bpy.data.objects[object_name].data
     
-    # Iterate over all vertex colors and set them to white
-    for vertex_color_layer in mesh.vertex_colors:
-        for loop_color in vertex_color_layer.data:
-            loop_color.color = (1.0, 1.0, 1.0, 1.0)  # Set to white
+    # # Ensure vertex colors are enabled
+    # if not mesh.vertex_colors:
+    #     mesh.vertex_colors.new()
+    
+    # # Assign highlight color to vertices
+    # vertex_colors = mesh.vertex_colors.active.data
+    # for loop_index, loop in enumerate(mesh.loops):
+    #     if loop.vertex_index in vertex_indices:
+    #         for i in range(3):
+    #             vertex_colors[loop_index].color[i] = highlight_color[i]
+    
+    # if mode == "EDIT":
+    #     bpy.ops.object.mode_set(mode='EDIT')
+
+    bpy.context.view_layer.objects.active = bpy.data.objects[objectName]
+    if mode == "EDIT":
+        bpy.ops.object.mode_set(mode='EDIT')
+
+    global ignoreLastOp
+    ignoreLastOp = True
+    return
+
+def clearHighlights():
+
+    suffix = ["Initial Pos", "Final Pos", "Add new vert", "Remove this vert"]
+
+    for obj in bpy.data.objects:
+    # Check if the object's name ends with the specified suffix
+        if obj.name.endswith(suffix[0]) or obj.name.endswith(suffix[1]) or obj.name.endswith(suffix[2]) or obj.name.endswith(suffix[3]):
+            # Delete the object
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
+    # # Switch to object mode
+    # bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
+    # bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # # Get the mesh data
+    # mesh = bpy.data.objects[object_name].data
+    
+    # # Ensure vertex colors are enabled
+    # if not mesh.vertex_colors:
+    #     return
+    
+    # # Iterate over all vertex colors and set them to white
+    # for vertex_color_layer in mesh.vertex_colors:
+    #     for loop_color in vertex_color_layer.data:
+    #         loop_color.color = (1.0, 1.0, 1.0, 1.0)  # Set to white
+    return
+
+
+def withinMargin(val1, val2, margin):
+    # Checks if value 1 is in between margin defined by value 2
+
+    return -np.abs(val2)*margin <= np.abs(val1 -val2) <= np.abs(val2)*margin
+
+def findVertsDiff(beforeList, afterList, margin):
+    # Given list1 and list2 and a margin (% / 100), returns the differences.
+    # E.g., if list1 contains vertices that are not included in list2: function returns these vertices.
+    # If len(list1) == len(list2), list1 is used as the base of comparison, which means that the return
+    # list contains vertices from list1 that are different than list2
+    
+    differences = []
+    compareFrom = beforeList
+    compareTo = afterList
+    margin = 0.1
+
+    if len(afterList) > len(beforeList):
+        compareFrom = afterList
+        compareTo = beforeList
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$  From To: ", compareFrom, compareTo)
+
+    for elem1 in compareFrom:
+        found = False
+        for elem2 in compareTo:
+            if all(withinMargin(val1, val2, margin) for val1, val2 in zip(elem1, elem2)):
+                found = True
+                break
+        if not found:
+            differences.append(elem1)
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$  DIFERENCAS: ", differences)
+    return differences
 
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
@@ -1173,23 +1322,132 @@ class Tutorial:
 
     def getNextStep(self):
         nextStep = self.tutorialSteps[self.state]
+        tolerance = nextStep[-1]["tolerance"]/100
 
-        print("AAAAAAAAAAAAAAAAAAAAAAAAAAA ", self.tutorialSteps[self.state-1])
-
-        if (self.state != 0 and self.tutorialSteps[self.state-1][1]["editMode"] and ("selectedVertices" in self.tutorialSteps[self.state-1][1]) and len(self.tutorialSteps[self.state-1][1]["selectedVertices"]) > 0):
-            object_name = self.tutorialSteps[self.state-1][-2]  # Replace with the name of your object
-            clear_vertex_colors(object_name)
+        clearHighlights()
         
         if (nextStep[1]["editMode"] and ("selectedVertices" in nextStep[1]) and len(nextStep[1]["selectedVertices"]) > 0):
+            # If next operation is in edit mode and had any selected vertex, highlight them
             object_name = nextStep[-2] 
             vertex_indices = nextStep[1]["selectedVertices"]
-            highlight_color = (0.0, 1.0, 0.0)  # RGB
-            highlightVertices(object_name, vertex_indices, highlight_color)
+            actualVertices = getObjectsOnCache()[object_name]["vertices"]
+
+            # Get positions of all vertices to be moved
+            firstPos = {key: value for key, value in actualVertices.items() if key in vertex_indices}
+            # Get final positions of all vertices 
+            secondPos = {key: value for key, value in nextStep[1]["vertices"].items() if key in vertex_indices}
+
+            highlightVertices(object_name, firstPos, secondPos, tolerance)
         
         return nextStep
 
+    def recursiveValidate(self, structure, structureCompare, structureType, tolerance):
+        # Given a structure (list, dictionary, int, str ...) and the corresponding structure to compare, recursively compare its float values 
+        # considering the tolerance (0,1 = 10%) and returns False if there is a difference and True otherwise. 
+
+        if structureType == dict:
+            for key in list(structure.keys()):
+                value = structure[key]
+                if type(value) != float and type(value) != int:
+                    if self.recursiveValidate(value, structureCompare[key], type(value), tolerance) == False:
+                        return False
+                elif type(value) == float:
+                    valueCompare = abs(structureCompare[key])
+                    if not (value == valueCompare or (abs(value) >= valueCompare*(1-tolerance) and abs(value) <= valueCompare*(1+tolerance))):
+                        return False
+                    
+        elif structureType == list or structureType == tuple:
+            for i, value in enumerate(structure):
+                if type(value) != float and type(value) != int:
+                    if self.recursiveValidate(value, structureCompare[i], type(value), tolerance) == False:
+                        return False
+                elif type(value) == float:
+                    # print("======= GOT VALUE   : ", value)
+                    valueCompare = abs(structureCompare[i])
+                    # print("======= COMPARE WITH: ", structureCompare[i], value == valueCompare or (value >= valueCompare*(1-tolerance) and value <= valueCompare*(1+tolerance)))
+                    if not (value == valueCompare or (abs(value) >= valueCompare*(1-tolerance) and abs(value) <= valueCompare*(1+tolerance))):
+                        return False       
+        return True
+    
+    def validateFinalValues(self, tolerance, expectedVerts, actualVerts, lastStep, objName):
+        # tolerance: Percentage/100 of tolerance for vertices location 
+        # expectedVerts: dictionary of all the vertices and their expected locations 
+        # Returns a list of incorrect indices and [] if all correct
+
+        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ ENTROU AQUI CUZAO")
+        expectedLen = len(list(expectedVerts.values()))
+        actualLen = len(list(actualVerts.values()))
+        lastLen = 0
+
+        if "vertices" in lastStep:
+            lastLen = len(list(lastStep["vertices"].values()))
+
+        # If new vertices or deleted vertices, no need to validate the values, they will be already wrong
+        if expectedLen != actualLen:
+            # Checking which are the vertices that have been created/deleted
+            # First check if the mesh configuration is as it was meant to be to go to next operation
+
+            clearHighlights()
+            if lastLen != actualLen and lastLen != 0:
+                # Means the mesh is not in the correct configuration to follow to next step
+                highlightVertices(objName, actualVerts, lastStep["vertices"], tolerance)
+            
+            else:
+                highlightVertices(objName, actualVerts, expectedVerts, tolerance)
+
+            # if expectedLen > actualLen:
+            #     # Means new vertices
+            #     # for key in expectedVerts.keys():
+            #     #     if (key not in actualVerts): difference.append(key)
+            #     highlightVertices(objName, {}, expectedVerts, tolerance)
+            
+            # else:
+            #     # Means deletion of verts
+            #     # for key in actualVerts.keys():
+            #     #     if (key not in expectedVerts): difference.append(key)
+            #     highlightVertices(objName, actualVerts, expectedVerts, tolerance)
+
+            return False
+
+        # Convert the dictionary values to a NumPy array
+        values_array = np.abs(np.array(list(expectedVerts.values())))
+        check_array = np.abs(np.array(list(actualVerts.values())))
+
+        # Calculate the upper and lower bounds for each value
+        upper_bound = values_array * (1 + tolerance)
+        lower_bound = values_array * (1 - tolerance)
+
+        # Check if each value lies within the tolerance interval
+        within_tolerance_interval = np.all((check_array >= lower_bound) & (check_array <= upper_bound), axis=1)
+
+        if (np.all(within_tolerance_interval)):
+            # Means all vertices are correct
+            return True
+            # return []
+
+        else:
+            incorrect_indices = np.where(~within_tolerance_interval)
+            # return incorrect_indices[0]
+            clearHighlights()
+
+            # Get positions of all wrong vertices (to be moved)
+            firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
+            # Get final positions of all vertices 
+            secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
+
+            highlightVertices(objName, firstPos, secondPos, tolerance)
+
+            return False
+
+
     def validateStep(self, step):
         # Validates the step passed [operator.name, properties] with the current state of the tutorial
+
+        activeObj = bpy.context.view_layer.objects.active
+        editMode = False
+
+        if (activeObj and activeObj.mode == "EDIT"):
+            editMode = True
 
         # Get the current step
         currentStep = self.tutorialSteps[self.state]
@@ -1197,15 +1455,51 @@ class Tutorial:
         # Get the filtered operation considering the additional props tracked (last element of saved step)
         filteredOp = getFilteredOp(step, currentStep[-1])
 
-        if filteredOp == self.tutorialSteps[self.state]:
-            if(self.state == len(self.tutorialSteps) - 1):
-                return ['end']
-            
-            else:
-                self.state += 1
-                return ['correct']
-        else:
-            return ['wrong', filteredOp, self.tutorialSteps[self.state]] # List with wrong and correct operation
+        print("=========== PERFORMED VS EXPECTED = ", filteredOp[0], self.tutorialSteps[self.state][0])
+
+        # Checking first if the mode is the same:
+        if currentStep[1]["editMode"] == editMode:
+
+            correct = False
+            tolerance = self.tutorialSteps[self.state][-1]["tolerance"]/100
+
+            if (editMode and activeObj and activeObj.name == currentStep[-2]):
+                # Checking if user is in edit mode and the name of the object selected is the same as the target operation
+
+                objName = currentStep[-2]
+                actualVerts = getObjectsOnCache()[objName]["vertices"]
+                # incorrectList = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, objName)
+
+                # if len(incorrectList) == 0:
+                #     correct = True
+
+                # else: 
+                #     clearHighlights()
+
+                #     # Get positions of all wrong vertices (to be moved)
+                #     firstPos = {key: value for key, value in actualVerts.items() if key in incorrectList}
+                #     # Get final positions of all vertices 
+                #     secondPos = {key: value for key, value in currentStep[1]["vertices"].items() if key in incorrectList}
+
+                #     highlightVertices(objName, firstPos, secondPos, tolerance)
+
+                correct = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, self.tutorialSteps[self.state-1][1], objName)
+
+            # Checking if the name of the operation is the same
+            elif filteredOp[0] == self.tutorialSteps[self.state][0]:
+                correct = self.recursiveValidate(self.tutorialSteps[self.state], filteredOp, list, tolerance)
+
+            print("=========== OPERATION CORRECT? ", correct)
+
+            if correct:
+                if(self.state == len(self.tutorialSteps) - 1):
+                    return ['end']
+                
+                else:
+                    self.state += 1
+                    return ['correct']
+
+        return ['wrong', filteredOp, self.tutorialSteps[self.state]] # List with wrong and correct operation
         
     def getProgress(self):
         # Returns the percentage of completeness of the tutorial
@@ -1246,6 +1540,7 @@ class ModalOperator(bpy.types.Operator):
             if (type(isSame) != bool):
 
                 # Has to save in the formatted form because otherwise it will save the struct in the memory
+                print("####################### active_operator = ", context.active_operator)
                 self.currOperation = formatOperation2(context.active_operator, isSame)
                 
                 if (len(self.currOperation) == 0): 
@@ -1262,7 +1557,7 @@ class ModalOperator(bpy.types.Operator):
                     else:
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2])
-                        print("============================ Got: ", result[1])
+                        print("============================ Got:                ", result[1])
                 
                 else:
                     self.tut.addTutorialStep(self.currOperation)
@@ -1348,6 +1643,7 @@ class StartLogger(bpy.types.Operator):
         # return context.active_object is not None
 
     def execute(self, context):
+        # clearHighlights()
         startLogger(context)
         return {'FINISHED'}
     
@@ -1388,6 +1684,7 @@ class StartTutorial(bpy.types.Operator):
             self.report({'ERROR'}, "File does not exist at the specified path.")
             return {'CANCELLED'}
         
+        # highlightVertices("Cube", {0: [0,0,0]}, {0: [0,0,1]})
         startLogger(context, tutMode=True, fileName = fileName)
         return {'FINISHED'}
     

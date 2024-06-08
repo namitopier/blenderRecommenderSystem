@@ -101,3 +101,43 @@ for tutorial in tutorials:
     #     tf_idf = tf*idf
 
 print(tutorials)
+
+'''
+
+desired = ['Extrude to Cursor or Add', {'rotate_source': True, 'newVertices': [8, 9, 10, 11], 'newFaces': [6, 7, 8, 9], 'vertices': {0: [0.8783648610115051, 1.0, 0.9925748705863953], 1: [1.1216351985931396, 1.0, -0.9925748705863953], 2: [0.8783648610115051, -1.0, 0.9925748705863953], 3: [1.1216351985931396, -1.0, -0.9925748705863953], 4: [-1.0, 1.0, 1.0], 5: [-1.0, 1.0, -1.0], 6: [-1.0, -1.0, 1.0], 7: [-1.0, -1.0, -1.0], 8: [3.5378735065460205, 0.9999998807907104, 1.6619833707809448], 9: [4.020801544189453, 0.9999998807907104, -0.2788362503051758], 10: [3.5378735065460205, -1.0000001192092896, 1.6619833707809448], 11: [4.020801544189453, -1.0000001192092896, -0.2788362503051758]}, 'editMode': True}, 'Cube', {}]
+performed = ['Extrude to Cursor or Add', {'rotate_source': True, 'newVertices': [8, 9, 10, 11], 'newFaces': [6, 7, 8, 9], 'vertices': {0: [0.8783648610115051, 1.0, 0.9925748705863953], 1: [1.1216351985931396, 1.0, -0.9925748705863953], 2: [0.8783648610115051, -1.0, 0.9925748705863953], 3: [1.1216351985931396, -1.0, -0.9925748705863953], 4: [-1.0, 1.0, 1.0], 5: [-1.0, 1.0, -1.0], 6: [-1.0, -1.0, 1.0], 7: [-1.0, -1.0, -1.0], 8: [3.5378735065460205, 0.9999998807907104, 1.6619833707809448], 9: [4.020801544189453, 0.9999998807907104, -0.2788362503051758], 10: [3.5378735065460205, -1.0000001192092896, 1.6619833707809448], 11: [4.020801544189453, -1.0000001192092896, -0.2788362503051758]}, 'editMode': True}, 'Cube', {}]
+tolerance = 10
+
+def validateValues(structure, structureCompare, structureType, tolerance):
+    hadBreak = False
+    if structureType == dict:
+        for key in list(structure.keys()):
+            value = structure[key]
+            if type(value) != float and type(value) != int:
+                if validateValues(value, structureCompare[key], type(value), tolerance) == False:
+                    return False
+            elif type(value) == float:
+                valueCompare = structureCompare[key]
+                if not (value == valueCompare or (value >= valueCompare*(1-tolerance) and value <= valueCompare*(1+tolerance))):
+                    return False
+                
+    elif structureType == list or structureType == tuple:
+        for i, value in enumerate(structure):
+            if type(value) != float and type(value) != int:
+                if validateValues(value, structureCompare[i], type(value), tolerance) == False:
+                    return False
+            elif type(value) == float:
+                valueCompare = structureCompare[i]
+                if not (value == valueCompare or (value >= valueCompare*(1-tolerance) and value <= valueCompare*(1+tolerance))):
+                    return False
+                
+    if hadBreak:
+        return False
+    else:
+        return True
+        
+#print(validateValues({0: [2.8, 1.0, 0.9], 1: [4.8, 2.0, 1.9]}, {0: [2.8, 1.0, 0.9], 1: [3.8, 2.0, 1.9]}, dict, tolerance/100))
+print(validateValues(desired, performed, list, tolerance/100))
+        
+print(validateValues({0: [2.8, 1.0, 0.9], 1: [4.8, 2.0, 1.9]}, {0: [2.8, 1.0, 0.9], 1: [3.8, 2.0, 1.9]}, dict, tolerance/100))
+'''
