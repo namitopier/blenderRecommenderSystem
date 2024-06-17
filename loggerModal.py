@@ -850,7 +850,7 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
             # Must consider only strings that start with "bpy" otherwise it is not a valid user action
         
             numberOfOp = len(operations)
-            print("#######################  len(operations) > numberOfOp and lastOp = ", lastOp)
+            # print("#######################  len(operations) > numberOfOp and lastOp = ", lastOp)
 
             if (newOp == None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
@@ -861,27 +861,6 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
 
         else:
             return True
-        # if (len(operations) > numberOfOp and lastOp[:7] == "bpy.ops"):
-        #     # Means that an operation has been performed
-        #     numberOfOp = len(operations)
-            
-        #     if (newOp == None):
-        #         # Operations like undo (ctrl z) or other specific operations are recognized as none
-        #         return True
-
-        #     else:
-                
-        #         return False
-
-        
-        # elif (len(operations) > numberOfOp and lastOp[:3] == "bpy" and lastOp[:34] != 'bpy.data.window_managers["WinMan"]'):
-        #     # Detected something that is not an operation, so treat them according to the type of action
-
-        #     numberOfOp = len(operations)
-        #     return operations[-1]
-
-        # else:
-        #     return True
         
     else:
         return True
@@ -1169,41 +1148,8 @@ def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
             # bpy.context.object.hide_select = True
             bpy.context.object.name = name
 
-    # else:
-    #     name = str(key) + ": Remove this vert"
-    #     location = [x + y for x, y in zip(firstPos[key], objLocation)]
-
-    #     bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
-    #     bpy.context.object.show_name = True
-    #     bpy.context.object.show_in_front = True
-    #     # bpy.context.object.hide_select = True
-    #     bpy.context.object.name = name
-
     bpy.ops.object.select_all(action='DESELECT')
     bpy.data.objects[objectName].select_set(True)
-
-    # # Switch to object mode
-    # bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
-    # mode = bpy.context.view_layer.objects.active.mode
-    # if mode == "EDIT":
-    #     bpy.ops.object.mode_set(mode='OBJECT')
-    
-    # # Get the mesh data
-    # mesh = bpy.data.objects[object_name].data
-    
-    # # Ensure vertex colors are enabled
-    # if not mesh.vertex_colors:
-    #     mesh.vertex_colors.new()
-    
-    # # Assign highlight color to vertices
-    # vertex_colors = mesh.vertex_colors.active.data
-    # for loop_index, loop in enumerate(mesh.loops):
-    #     if loop.vertex_index in vertex_indices:
-    #         for i in range(3):
-    #             vertex_colors[loop_index].color[i] = highlight_color[i]
-    
-    # if mode == "EDIT":
-    #     bpy.ops.object.mode_set(mode='EDIT')
 
     bpy.context.view_layer.objects.active = bpy.data.objects[objectName]
     if mode == "EDIT":
@@ -1223,22 +1169,6 @@ def clearHighlights():
             # Delete the object
             bpy.data.objects.remove(obj, do_unlink=True)
 
-
-    # # Switch to object mode
-    # bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
-    # bpy.ops.object.mode_set(mode='OBJECT')
-    
-    # # Get the mesh data
-    # mesh = bpy.data.objects[object_name].data
-    
-    # # Ensure vertex colors are enabled
-    # if not mesh.vertex_colors:
-    #     return
-    
-    # # Iterate over all vertex colors and set them to white
-    # for vertex_color_layer in mesh.vertex_colors:
-    #     for loop_color in vertex_color_layer.data:
-    #         loop_color.color = (1.0, 1.0, 1.0, 1.0)  # Set to white
     return
 
 
@@ -1322,22 +1252,22 @@ class Tutorial:
 
     def getNextStep(self):
         nextStep = self.tutorialSteps[self.state]
-        tolerance = nextStep[-1]["tolerance"]/100
+        # tolerance = nextStep[-1]["tolerance"]/100
 
-        clearHighlights()
+        # clearHighlights()
         
-        if (nextStep[1]["editMode"] and ("selectedVertices" in nextStep[1]) and len(nextStep[1]["selectedVertices"]) > 0):
+        # if (nextStep[1]["editMode"] and ("selectedVertices" in nextStep[1]) and len(nextStep[1]["selectedVertices"]) > 0):
             # If next operation is in edit mode and had any selected vertex, highlight them
-            object_name = nextStep[-2] 
-            vertex_indices = nextStep[1]["selectedVertices"]
-            actualVertices = getObjectsOnCache()[object_name]["vertices"]
+            # object_name = nextStep[-2] 
+            # vertex_indices = nextStep[1]["selectedVertices"]
+            # actualVertices = getObjectsOnCache()[object_name]["vertices"]
 
             # Get positions of all vertices to be moved
-            firstPos = {key: value for key, value in actualVertices.items() if key in vertex_indices}
+            # firstPos = {key: value for key, value in actualVertices.items() if key in vertex_indices}
             # Get final positions of all vertices 
-            secondPos = {key: value for key, value in nextStep[1]["vertices"].items() if key in vertex_indices}
+            # secondPos = {key: value for key, value in nextStep[1]["vertices"].items() if key in vertex_indices}
 
-            highlightVertices(object_name, firstPos, secondPos, tolerance)
+            # highlightVertices(object_name, firstPos, secondPos, tolerance)
         
         return nextStep
 
@@ -1374,7 +1304,6 @@ class Tutorial:
         # expectedVerts: dictionary of all the vertices and their expected locations 
         # Returns a list of incorrect indices and [] if all correct
 
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ ENTROU AQUI CUZAO")
         expectedLen = len(list(expectedVerts.values()))
         actualLen = len(list(actualVerts.values()))
         lastLen = 0
@@ -1387,13 +1316,54 @@ class Tutorial:
             # Checking which are the vertices that have been created/deleted
             # First check if the mesh configuration is as it was meant to be to go to next operation
 
-            clearHighlights()
+            # clearHighlights()
             if lastLen != actualLen and lastLen != 0:
                 # Means the mesh is not in the correct configuration to follow to next step
-                highlightVertices(objName, actualVerts, lastStep["vertices"], tolerance)
-            
+
+                # highlightVertices(objName, actualVerts, lastStep["vertices"], tolerance)
+                if (lastLen > actualLen):
+                    # Means that some vertices are missing
+                    
+                    missing = lastLen-actualLen
+
+                    if (missing == 1):
+                        print("ERROR FOUND! There is 1 vertex missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
+                    else:
+                        print("ERROR FOUND! There are %i vertices missing in this object. Be sure to add them at the correct location so the tutorial can continue!" %(missing))
+                    
+                else:
+                    # Means that there are additional vertices
+
+                    additional = actualLen - lastLen
+
+                    if (additional == 1):
+                        print("ERROR FOUND! There is 1 additional vertex in this object. Be sure to delete the correct one so the tutorial can continue!")
+                    else:
+                        print("ERROR FOUND! There are %i additional vertices in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
+
             else:
-                highlightVertices(objName, actualVerts, expectedVerts, tolerance)
+                # Means the mesh is ready fot the next step, so now compare the actual vertices to the expected for the next op
+                
+                # highlightVertices(objName, actualVerts, expectedVerts, tolerance)
+                if (expectedLen > actualLen):
+                    # Means that some vertices are missing
+                    
+                    missing = expectedLen-actualLen
+
+                    if (missing == 1):
+                        print("There is still 1 vertex missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
+                    else:
+                        print("There are %i vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
+                    
+                else:
+                    # Means that there are additional vertices
+
+                    additional = actualLen - expectedLen
+
+                    if (additional == 1):
+                        print("There is still 1 additional vertex in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
+                    else:
+                        print("There are %i additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
 
             # if expectedLen > actualLen:
             #     # Means new vertices
@@ -1426,16 +1396,25 @@ class Tutorial:
             # return []
 
         else:
-            incorrect_indices = np.where(~within_tolerance_interval)
+            # incorrect_indices = np.where(~within_tolerance_interval)
             # return incorrect_indices[0]
-            clearHighlights()
+            # clearHighlights()
 
             # Get positions of all wrong vertices (to be moved)
-            firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
+            # firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
             # Get final positions of all vertices 
-            secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
+            # secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
 
-            highlightVertices(objName, firstPos, secondPos, tolerance)
+            # highlightVertices(objName, firstPos, secondPos, tolerance)
+
+            incorrect_indices = np.where(~within_tolerance_interval)
+            incorrectCount = np.shape(incorrect_indices)[-1]
+            
+            if (incorrectCount == 1):
+                print("There is still 1 wrong located vertex in this object in order to conclude this step! Follow the tutorial to move it to the correct location!")
+            
+            else:
+                print("There are %i wrong located vertices in this object in order to conclude this step! Follow the tutorial to move them to the correct location!" %(incorrectCount))
 
             return False
 
@@ -1540,7 +1519,7 @@ class ModalOperator(bpy.types.Operator):
             if (type(isSame) != bool):
 
                 # Has to save in the formatted form because otherwise it will save the struct in the memory
-                print("####################### active_operator = ", context.active_operator)
+                # print("####################### active_operator = ", context.active_operator)
                 self.currOperation = formatOperation2(context.active_operator, isSame)
                 
                 if (len(self.currOperation) == 0): 
