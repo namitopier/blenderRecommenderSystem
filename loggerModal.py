@@ -17,6 +17,7 @@ import math
 import re
 import os
 import numpy as np
+import json
 
 useLogger = False
 logCache = []
@@ -1502,6 +1503,7 @@ class ModalOperator(bpy.types.Operator):
     currOperation = None
     tut = None
     tutorialMode = False
+    user = None
 
     def modal(self, context, event):
 
@@ -1528,12 +1530,16 @@ class ModalOperator(bpy.types.Operator):
                 if self.tutorialMode:
                     result = self.tut.validateStep(self.currOperation)
                     if (result == ['correct']):
+                        self.user.updateUserProfile(self.currOperation[0], True)
                         print("============================ Correct operation!")
                         print("============================ Your progress: ", self.tut.getProgress() * 100, " %")
                         print("\n============================ NEXT STEP: Perform the following operation: ", self.tut.getNextStep())
+
                     elif(result == ['end']):
                         print("============================ Tutorial Finished!")
+                        print("\n RECOMMENDATIONS: ", self.user.makeRecommendation())
                     else:
+                        self.user.updateUserProfile(self.currOperation[0], False)
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2])
                         print("============================ Got:                ", result[1])
@@ -1577,6 +1583,8 @@ class ModalOperator(bpy.types.Operator):
                 self.tut.loadTutorialSteps(tutFileName)
                 self.tutorialMode = True
 
+                self.user = userModel()
+
             context.window_manager.modal_handler_add(self)
 
             # if context.object == None:
@@ -1609,6 +1617,110 @@ class ModalOperator(bpy.types.Operator):
             self.report({'WARNING'}, "No active object, could not finish")
             return {'CANCELLED'}
         
+
+class userModel:
+
+    # Alpha = influence of old user model
+    alpha = 1.0
+    # Beta = influence of useful terms (in this case, incorrectly perfromed operations)
+    beta = 0.5
+    # Gamma = influence of non useful terms (in this case, correctly perfromed operations)
+    gamma = -0.5
+    # userProfile = updated (and normalized) weights for the useful terms
+    userProfile = []
+    
+    # List containing all the terms (name of operations) found in tutorials
+    allTerms = []
+    # Dictionary containing all tutorials and all terms
+    termsDict = {}
+
+    def __init__(self):
+
+        # Get the path to the folder containing all the tf-idf calculated
+        # file_name = 'termWeights.txt'
+        # tutorials_path = os.path.join(os.path.dirname(__file__), 'blenderProject') 
+        # file_path = os.path.join(tutorials_path, file_name)
+
+        file_path = bpy.path.abspath('//termWeights.txt')
+
+        # Read the dictionary containing all the calculated weights
+        with open(file_path, 'r') as file:
+            self.termsDict = json.load(file)
+
+        # User profile length should be equal to the number of terms found in the tutorials
+        self.userProfile = [0] * len(self.termsDict["allTerms"])
+
+        self.allTerms = self.termsDict["allTerms"]
+
+        print("############ DEBUG: All terms: ", self.allTerms)
+
+    def getAllTerms(self):
+        # Returns a list containing all the names of operations in orderfor the Rocchio's algorithm
+        return self.allTerms
+
+
+    def updateUserProfile(self, operationName, correct):
+        # Given an operation name and if the operation was correct, update user profile according
+        # to alpha, beta and gamma.
+        # NOTE: The operation names are actually the terms used to calculate relevance of tutorials
+
+        print("############ DEBUG: old profile: ", self.userProfile)
+
+        if operationName in self.allTerms:
+            # List where it is equal to 1 only for the operation name
+            update = [1 if name == operationName else 0 for name in self.allTerms]
+
+            if correct:
+                # Means gamma should be used
+                self.userProfile = np.add(np.multiply(self.userProfile, self.alpha), np.multiply(update, self.gamma))
+            
+            else:
+                # Means beta should be used
+                self.userProfile = np.add(np.multiply(self.userProfile, self.alpha), np.multiply(update, self.beta))
+        else:
+            print("ERROR! operation name not found as a pre-calculated term!!")
+
+        print("############ DEBUG: new profile: ", self.userProfile)
+        
+    def makeRecommendation(self):
+        # Returns a list of the top 2 recommendations (excluding the current one)
+        
+        # First remove negative values (since minimum is 0 in calculated weights) and it can result to negative cosine similarity
+        positiveProfile = [0 if value < 0 else value for value in self.userProfile]
+
+        # After, normalize updated user profile
+        normalizedProfile = np.divide(positiveProfile, np.sqrt(np.sum(np.square(positiveProfile))))
+
+
+        bestSimilarities = [0, 0]
+        recommendations = ["", ""]
+
+        for tutName in self.termsDict['allTutorials'].keys():
+            weights = self.termsDict['allTutorials'][tutName]
+
+            print("############ DEBUG: tutName and weight: ", tutName, "\n", weights)
+
+            # Sice both weights and normalizedProfile are already normalized, cosine similarity is just the dot product
+            cosineSimilarity = np.dot(np.array(normalizedProfile), np.array(weights))
+            print("############ DEBUG: CosineSimilarity: ", cosineSimilarity)
+
+            if cosineSimilarity > bestSimilarities[0]:
+                
+                old = bestSimilarities[0]
+                bestSimilarities[0] = cosineSimilarity
+                bestSimilarities[1] = old     
+
+                oldRec = recommendations[0]
+                recommendations[0] = tutName
+                recommendations[1] = oldRec
+
+            elif cosineSimilarity > bestSimilarities[1]:
+
+                bestSimilarities[1] = cosineSimilarity
+                recommendations[1] = tutName
+
+        return recommendations
+
 class StartLogger(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "object.log_actions"
