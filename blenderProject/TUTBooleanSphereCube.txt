@@ -1,0 +1,8 @@
+['Add UV Sphere', {'enter_editmode': False, 'align': 'WORLD', 'editMode': False}, 'Sphere', {'tolerance': 10}]
+['Add UV Sphere', {'editMode': False}, 'Sphere', {'tolerance': 10}]
+['Resize', {'value': (1.2, 1.2, 1.2), 'orient_type': 'GLOBAL', 'newscale': [1.2000000476837158, 1.2000000476837158, 1.2000000476837158], 'editMode': False}, 'Sphere', {'tolerance': 10}]
+['Add Modifier', {'type': 'BOOLEAN', 'editMode': False}, 'Cube', {'tolerance': 10}]
+[' bpy context object modifiers', {'group': 'Boolean', 'operation': "'DIFFERENCE'", 'editMode': False}, 'Cube', {'tolerance': 10}]
+[' bpy context object modifiers', {'group': 'Boolean', 'subgroup': 'Sphere', 'object': 'bpy.data.objects', 'editMode': False}, 'Cube', {'tolerance': 10}]
+['Apply Modifier', {'modifier': 'Boolean', 'report': True, 'editMode': False}, 'Cube', {'tolerance': 10}]
+['Delete', {'use_global': False, 'confirm': False, 'editMode': False}, None, {'tolerance': 10}]

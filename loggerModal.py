@@ -18,6 +18,7 @@ import re
 import os
 import numpy as np
 import json
+import copy
 
 useLogger = False
 logCache = []
@@ -535,13 +536,14 @@ def formatOperation2(operator, isSame):
     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
 
 # =======================================================================================================
-                
+
+    activeObj = bpy.context.view_layer.objects.active             
+    mode = None if activeObj == None else activeObj.mode 
+    
     if isSame[:7] == "bpy.ops":
         # The structure of bpy.ops is different than the others -> means it is actually an operation
 
         result = ""
-        activeObj = bpy.context.view_layer.objects.active
-        mode = None if activeObj == None else activeObj.mode 
 
         # Removing all the characters before the first parenthesis
         processed = isSame[isSame.index("(") + 1:-1]
@@ -626,10 +628,12 @@ def formatOperation2(operator, isSame):
                     # Means modification occurred
 
                     saveObjectVerticesOnCache(allVertices)
+                    saveObjectFacesOnCache(allFaces)
                     result["selectedVertices"] = vertDiff
 
             # Saving all vertices in the result
             result["vertices"] = allVertices
+            result["faces"] = allFaces
             result["editMode"] = True
 
 
@@ -689,6 +693,10 @@ def formatOperation2(operator, isSame):
                 cacheObjs[activeObj.name] = getAllObjects(firstCall=True)[activeObj.name]
                 saveObjectsOnCache(cacheObjs)
             
+            result["editMode"] = False
+
+        if activeObj == None:
+            # Means its probably a deletion, so have to include manually "editMode"
             result["editMode"] = False
 
         translated = [operator.name, result, None if activeObj == None else activeObj.name]
@@ -772,7 +780,6 @@ def formatOperation2(operator, isSame):
 
         if len(endIndices) != 0:
             # Means that it requires special treatment for the "["something"]"
-
             for i, char in enumerate(isSame):
                 if (char == "[" and i > baseIndex):
                     # At every first occurrence of [, means the start of a string
@@ -807,7 +814,10 @@ def formatOperation2(operator, isSame):
         processed = processed.split(" = ")
 
         # Get the value of the property
-        value = eval(processed[1])
+        if type(eval(processed[1]) not in [int, float, str]):
+            value = str(processed[1])
+        else:
+            value = eval(processed[1])
         
         # Get the address of the operation
         processed = processed[0].split(".")
@@ -819,6 +829,7 @@ def formatOperation2(operator, isSame):
         groupsList.append([processed[-1], value])
         translated.append(dict(groupsList))
         translated.append(None if not activeObj else activeObj.name)
+        translated[1]["editMode"] = True if mode == 'EDIT' else False
 
     return translated
 
@@ -868,6 +879,7 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     
 def getAllObjects(firstCall = False):
     # Gets all the objects in the scene.
+    # If it is a new object, firstcall == True and thus all its vertices must be considered
 
     objsDict = {}
     changedMode = False
@@ -875,7 +887,7 @@ def getAllObjects(firstCall = False):
     if firstCall:
         activeObj = bpy.context.view_layer.objects.active
 
-        if activeObj and activeObj.mode == "OBJECT":
+        if activeObj and activeObj.mode == "OBJECT" and activeObj.type == 'MESH':
             bpy.ops.object.editmode_toggle()
             changedMode = True
 
@@ -1040,6 +1052,7 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
                     "deletedFaces",
                     "selectedVertices",
                     "vertices",
+                    "faces",
                     "editMode",
                     "newscale",
                     "newlocation",
@@ -1207,6 +1220,77 @@ def findVertsDiff(beforeList, afterList, margin):
     print("$$$$$$$$$$$$$$$$$$$$$$$$  DIFERENCAS: ", differences)
     return differences
 
+def checkMeshSimilarity (meshDict1, meshDict2, margin):
+    # Given 2 dictionaries containing information about vertices and faces of the 2 meshes,
+    # (and considering that the number of vertices and faces are already equal for both),
+    # compare their location considering the given margin.
+
+    vert1 = np.array( list(meshDict1["vertices"].values()) )
+    vert2 = list(meshDict2["vertices"].values())
+    faces1 = np.array( list(meshDict1["faces"].values()) )
+    faces2 = list(meshDict2["faces"].values())
+
+    def checkCorrespondence (dict1, dict2, i):
+        # Internal function that receives 2 dictionaries containing vertices/faces
+        # and tries to find a correspondence between all entries of dict1 with all of dict2
+        # considering the margin selected.
+        # Once found, this entry is removed from dict2 since it is a 1-1 correspondence, 
+        # increasing performance.
+        # RETURNS: -1 if no correspondence found (so the mesh is wrong) or modified dict2 if found
+        # correspondence (it deletes the found correspondent) .
+    
+        foundI = -1
+        possibleIndices = []
+        possibleValues = []
+
+        for j in range (len(dict2)):
+            if all(np.abs(dict1[i][k] - dict2[j][k]) <= margin * abs(dict1[i][k]) for k in range(3)):
+                    # foundI = j
+                    # break  # Stop searching for this vertex in dict2 once a match is found
+
+                    possibleIndices.append(j)
+                    possibleValues.append( np.linalg.norm( np.array(dict1[i]) - np.array(dict2[j])) ) # Distance between the 2 points
+
+        # if foundI >= 0:
+        if len(possibleIndices) > 0:
+            foundI = possibleIndices[np.argmin(possibleValues)]
+            del dict2[foundI]
+            return dict2
+            
+        else:
+            return -1
+            
+    found = True
+
+    # First test vertices correspondence:
+    for i in range (len(vert1)):
+        checked = checkCorrespondence(vert1, vert2, i)
+        
+        if checked == -1:
+            found = False
+            break
+        
+        else:
+            vert2 = checked
+
+    # If fully correspondent, check faces
+    if found:
+        for i in range (len(faces1)):
+            checked = checkCorrespondence(faces1, faces2, i)
+            if checked == -1:
+                found = False
+                break
+            
+            else:
+                faces2 = checked
+
+        
+    print("***************************************")
+    print("Meshes are EQUAL" if found else "Meshes are DIFFERENT")
+    print("***************************************")
+
+    return found
+
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
 # ======================================================================================================================= #
@@ -1275,7 +1359,6 @@ class Tutorial:
     def recursiveValidate(self, structure, structureCompare, structureType, tolerance):
         # Given a structure (list, dictionary, int, str ...) and the corresponding structure to compare, recursively compare its float values 
         # considering the tolerance (0,1 = 10%) and returns False if there is a difference and True otherwise. 
-
         if structureType == dict:
             for key in list(structure.keys()):
                 value = structure[key]
@@ -1300,32 +1383,40 @@ class Tutorial:
                         return False       
         return True
     
-    def validateFinalValues(self, tolerance, expectedVerts, actualVerts, lastStep, objName):
+    def validateFinalValues(self, tolerance, expectedMesh, actualMesh, lastStep, objName):
         # tolerance: Percentage/100 of tolerance for vertices location 
         # expectedVerts: dictionary of all the vertices and their expected locations 
         # Returns a list of incorrect indices and [] if all correct
 
-        expectedLen = len(list(expectedVerts.values()))
-        actualLen = len(list(actualVerts.values()))
-        lastLen = 0
+        expFacesLen = len(list(expectedMesh["faces"].values()))
+        actFacesLen = len(list(actualMesh["faces"].values()))
+        expVertsLen = len(list(expectedMesh["vertices"].values()))
+        actVertsLen = len(list(actualMesh["vertices"].values()))
 
-        if "vertices" in lastStep:
-            lastLen = len(list(lastStep["vertices"].values()))
+        # expectedLen = len(list(expectedVerts.values()))
+        # actualLen = len(list(actualVerts.values()))
+        lastVertsLen = 0
+        lastFacesLen = 0
+
+        if "vertices" in lastStep and type(lastStep["vertices"]) == dict:
+            lastVertsLen = len(list(lastStep["vertices"].values()))
+            lastFacesLen = len(list(lastStep["faces"].values()))
+
 
         # If new vertices or deleted vertices, no need to validate the values, they will be already wrong
-        if expectedLen != actualLen:
-            # Checking which are the vertices that have been created/deleted
+        if expFacesLen != actFacesLen or expVertsLen != actVertsLen:
+            # Checking which are the vertices/faces that have been created/deleted
             # First check if the mesh configuration is as it was meant to be to go to next operation
 
             # clearHighlights()
-            if lastLen != actualLen and lastLen != 0:
+            if lastVertsLen != actVertsLen and lastVertsLen != 0:
                 # Means the mesh is not in the correct configuration to follow to next step
 
                 # highlightVertices(objName, actualVerts, lastStep["vertices"], tolerance)
-                if (lastLen > actualLen):
+                if (lastVertsLen > actVertsLen):
                     # Means that some vertices are missing
                     
-                    missing = lastLen-actualLen
+                    missing = lastVertsLen-actVertsLen
 
                     if (missing == 1):
                         print("ERROR FOUND! There is 1 vertex missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
@@ -1335,36 +1426,79 @@ class Tutorial:
                 else:
                     # Means that there are additional vertices
 
-                    additional = actualLen - lastLen
+                    additional = actVertsLen - lastVertsLen
 
                     if (additional == 1):
                         print("ERROR FOUND! There is 1 additional vertex in this object. Be sure to delete the correct one so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i additional vertices in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
 
+            elif lastFacesLen != actFacesLen and lastFacesLen != 0:
+                # Means the mesh is not in the correct configuration to follow to next step
+
+                if (lastFacesLen > actFacesLen):
+                    # Means that some faces are missing
+                    
+                    missing = lastFacesLen-actFacesLen
+
+                    if (missing == 1):
+                        print("ERROR FOUND! There is 1 face missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
+                    else:
+                        print("ERROR FOUND! There are %i faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!" %(missing))
+                    
+                else:
+                    # Means that there are additional faces
+
+                    additional = actFacesLen - lastFacesLen
+
+                    if (additional == 1):
+                        print("ERROR FOUND! There is 1 additional face in this object. Be sure to delete the correct one so the tutorial can continue!")
+                    else:
+                        print("ERROR FOUND! There are %i additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
+
             else:
                 # Means the mesh is ready fot the next step, so now compare the actual vertices to the expected for the next op
                 
                 # highlightVertices(objName, actualVerts, expectedVerts, tolerance)
-                if (expectedLen > actualLen):
+                if (expVertsLen > actVertsLen):
                     # Means that some vertices are missing
                     
-                    missing = expectedLen-actualLen
+                    missing = expVertsLen-actVertsLen
 
                     if (missing == 1):
                         print("There is still 1 vertex missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
                     else:
                         print("There are %i vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
                     
-                else:
+                elif (expVertsLen < actVertsLen):
                     # Means that there are additional vertices
 
-                    additional = actualLen - expectedLen
+                    additional = actVertsLen - expVertsLen
 
                     if (additional == 1):
                         print("There is still 1 additional vertex in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
                     else:
                         print("There are %i additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
+
+                if (expFacesLen > actFacesLen):
+                    # Means that some faces are missing
+                    
+                    missing = expFacesLen-actFacesLen
+
+                    if (missing == 1):
+                        print("There is still 1 face missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
+                    else:
+                        print("There are %i faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
+                    
+                elif (expFacesLen < actFacesLen):
+                    # Means that there are additional faces
+
+                    additional = actFacesLen - expFacesLen
+
+                    if (additional == 1):
+                        print("There is still 1 additional face in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
+                    else:
+                        print("There are %i additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
 
             # if expectedLen > actualLen:
             #     # Means new vertices
@@ -1380,44 +1514,51 @@ class Tutorial:
 
             return False
 
-        # Convert the dictionary values to a NumPy array
-        values_array = np.abs(np.array(list(expectedVerts.values())))
-        check_array = np.abs(np.array(list(actualVerts.values())))
+        same = checkMeshSimilarity(expectedMesh, actualMesh, 0.2)
 
-        # Calculate the upper and lower bounds for each value
-        upper_bound = values_array * (1 + tolerance)
-        lower_bound = values_array * (1 - tolerance)
+        if not same:
+            print("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
 
-        # Check if each value lies within the tolerance interval
-        within_tolerance_interval = np.all((check_array >= lower_bound) & (check_array <= upper_bound), axis=1)
+        # # Convert the dictionary values to a NumPy array
+        # values_array = np.abs(np.array(list(expectedVerts.values())))
+        # check_array = np.abs(np.array(list(actualVerts.values())))
 
-        if (np.all(within_tolerance_interval)):
-            # Means all vertices are correct
-            return True
-            # return []
+        # # Calculate the upper and lower bounds for each value
+        # upper_bound = values_array * (1 + tolerance)
+        # lower_bound = values_array * (1 - tolerance)
 
-        else:
-            # incorrect_indices = np.where(~within_tolerance_interval)
-            # return incorrect_indices[0]
-            # clearHighlights()
+        # # Check if each value lies within the tolerance interval
+        # within_tolerance_interval = np.all((check_array >= lower_bound) & (check_array <= upper_bound), axis=1)
 
-            # Get positions of all wrong vertices (to be moved)
-            # firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
-            # Get final positions of all vertices 
-            # secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
+        # if (np.all(within_tolerance_interval)):
+        #     # Means all vertices are correct
+        #     return True
+        #     # return []
 
-            # highlightVertices(objName, firstPos, secondPos, tolerance)
+        # else:
+        #     # incorrect_indices = np.where(~within_tolerance_interval)
+        #     # return incorrect_indices[0]
+        #     # clearHighlights()
 
-            incorrect_indices = np.where(~within_tolerance_interval)
-            incorrectCount = np.shape(incorrect_indices)[-1]
+        #     # Get positions of all wrong vertices (to be moved)
+        #     # firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
+        #     # Get final positions of all vertices 
+        #     # secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
+
+        #     # highlightVertices(objName, firstPos, secondPos, tolerance)
+
+        #     incorrect_indices = np.where(~within_tolerance_interval)
+        #     incorrectCount = np.shape(incorrect_indices)[-1]
             
-            if (incorrectCount == 1):
-                print("There is still 1 wrong located vertex in this object in order to conclude this step! Follow the tutorial to move it to the correct location!")
+        #     if (incorrectCount == 1):
+        #         print("There is still 1 wrong located vertex in this object in order to conclude this step! Follow the tutorial to move it to the correct location!")
             
-            else:
-                print("There are %i wrong located vertices in this object in order to conclude this step! Follow the tutorial to move them to the correct location!" %(incorrectCount))
+        #     else:
+        #         print("There are %i wrong located vertices in this object in order to conclude this step! Follow the tutorial to move them to the correct location!" %(incorrectCount))
 
-            return False
+        #     return False
+
+        return same
 
 
     def validateStep(self, step):
@@ -1438,7 +1579,7 @@ class Tutorial:
         print("=========== PERFORMED VS EXPECTED = ", filteredOp[0], self.tutorialSteps[self.state][0])
 
         # Checking first if the mode is the same:
-        if currentStep[1]["editMode"] == editMode:
+        if ("editMode" not in currentStep[1] and editMode == "OBJECT") or ("editMode" in currentStep[1] and currentStep[1]["editMode"] == editMode):
 
             correct = False
             tolerance = self.tutorialSteps[self.state][-1]["tolerance"]/100
@@ -1447,7 +1588,9 @@ class Tutorial:
                 # Checking if user is in edit mode and the name of the object selected is the same as the target operation
 
                 objName = currentStep[-2]
-                actualVerts = getObjectsOnCache()[objName]["vertices"]
+                # actualVerts = getObjectsOnCache()[objName]["vertices"]
+                actualMesh = getObjectsOnCache()[objName]
+
                 # incorrectList = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, objName)
 
                 # if len(incorrectList) == 0:
@@ -1463,7 +1606,21 @@ class Tutorial:
 
                 #     highlightVertices(objName, firstPos, secondPos, tolerance)
 
-                correct = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, self.tutorialSteps[self.state-1][1], objName)
+                # correct = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, self.tutorialSteps[self.state-1][1], objName)
+                
+                if "vertices" not in currentStep[1]:
+                    # If there is no vertices/faces in the next operation, means it was something like "add material"
+                    # therefore We can skip mesh verification
+                    
+                    # Checking if the name of the operation is the same
+                    if filteredOp[0] == self.tutorialSteps[self.state][0]:
+                        correct = self.recursiveValidate(self.tutorialSteps[self.state], filteredOp, list, tolerance)
+                    
+                    else:
+                        correct = False
+
+                else: 
+                    correct = self.validateFinalValues(tolerance, currentStep[1], actualMesh, self.tutorialSteps[self.state-1][1], objName)
 
             # Checking if the name of the operation is the same
             elif filteredOp[0] == self.tutorialSteps[self.state][0]:
@@ -1533,7 +1690,13 @@ class ModalOperator(bpy.types.Operator):
                         self.user.updateUserProfile(self.currOperation[0], True)
                         print("============================ Correct operation!")
                         print("============================ Your progress: ", self.tut.getProgress() * 100, " %")
-                        print("\n============================ NEXT STEP: Perform the following operation: ", self.tut.getNextStep())
+                        stepDescription = copy.deepcopy(self.tut.getNextStep())
+                        if "vertices" in stepDescription[1]:
+                            del stepDescription[1]["vertices"]
+                        if "faces" in stepDescription[1]:
+                            del stepDescription[1]["faces"]
+                            
+                        print("\n============================ NEXT STEP: Perform the following operation: ", stepDescription)
 
                     elif(result == ['end']):
                         print("============================ Tutorial Finished!")
@@ -1541,8 +1704,8 @@ class ModalOperator(bpy.types.Operator):
                     else:
                         self.user.updateUserProfile(self.currOperation[0], False)
                         print("============================ WRONG OPERATION!")
-                        print("============================ Expected operation: ", result[2])
-                        print("============================ Got:                ", result[1])
+                        print("============================ Expected operation: ", result[2][0])
+                        print("============================ Got:                ", result[1][0])
                 
                 else:
                     self.tut.addTutorialStep(self.currOperation)
@@ -1685,6 +1848,9 @@ class userModel:
     def makeRecommendation(self):
         # Returns a list of the top 2 recommendations (excluding the current one)
         
+        # Name of the tutorial loaded (current)
+        global tutFileName
+
         # First remove negative values (since minimum is 0 in calculated weights) and it can result to negative cosine similarity
         positiveProfile = [0 if value < 0 else value for value in self.userProfile]
 
@@ -1696,28 +1862,30 @@ class userModel:
         recommendations = ["", ""]
 
         for tutName in self.termsDict['allTutorials'].keys():
-            weights = self.termsDict['allTutorials'][tutName]
+            # Exclude the current tutorial (cannot recommend the same tutorial)
+            if tutName != tutFileName:
+                weights = self.termsDict['allTutorials'][tutName]
 
-            print("############ DEBUG: tutName and weight: ", tutName, "\n", weights)
+                print("############ DEBUG: tutName and weight: ", tutName, "\n", weights)
 
-            # Sice both weights and normalizedProfile are already normalized, cosine similarity is just the dot product
-            cosineSimilarity = np.dot(np.array(normalizedProfile), np.array(weights))
-            print("############ DEBUG: CosineSimilarity: ", cosineSimilarity)
+                # Sice both weights and normalizedProfile are already normalized, cosine similarity is just the dot product
+                cosineSimilarity = np.dot(np.array(normalizedProfile), np.array(weights))
+                print("############ DEBUG: CosineSimilarity: ", cosineSimilarity)
 
-            if cosineSimilarity > bestSimilarities[0]:
-                
-                old = bestSimilarities[0]
-                bestSimilarities[0] = cosineSimilarity
-                bestSimilarities[1] = old     
+                if cosineSimilarity > bestSimilarities[0]:
+                    
+                    old = bestSimilarities[0]
+                    bestSimilarities[0] = cosineSimilarity
+                    bestSimilarities[1] = old     
 
-                oldRec = recommendations[0]
-                recommendations[0] = tutName
-                recommendations[1] = oldRec
+                    oldRec = recommendations[0]
+                    recommendations[0] = tutName
+                    recommendations[1] = oldRec
 
-            elif cosineSimilarity > bestSimilarities[1]:
+                elif cosineSimilarity > bestSimilarities[1]:
 
-                bestSimilarities[1] = cosineSimilarity
-                recommendations[1] = tutName
+                    bestSimilarities[1] = cosineSimilarity
+                    recommendations[1] = tutName
 
         return recommendations
 
