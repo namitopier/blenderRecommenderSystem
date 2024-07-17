@@ -1383,14 +1383,14 @@ class Tutorial:
                         return False       
         return True
     
-    def validateFinalValues(self, tolerance, expectedMesh, actualMesh, lastStep, objName):
+    def validateFinalValues(self, tolerance, expectedMeshes, actualMesh, lastStep, objName):
         # tolerance: Percentage/100 of tolerance for vertices location 
-        # expectedVerts: dictionary of all the vertices and their expected locations 
+        # expectedMeshes: list of dictionaries of all the vertices and their expected locations of the next 3 operations
         # Returns a list of incorrect indices and [] if all correct
 
-        expFacesLen = len(list(expectedMesh["faces"].values()))
+        expFacesLen = len(list(expectedMeshes[0]["faces"].values()))
         actFacesLen = len(list(actualMesh["faces"].values()))
-        expVertsLen = len(list(expectedMesh["vertices"].values()))
+        expVertsLen = len(list(expectedMeshes[0]["vertices"].values()))
         actVertsLen = len(list(actualMesh["vertices"].values()))
 
         # expectedLen = len(list(expectedVerts.values()))
@@ -1514,7 +1514,15 @@ class Tutorial:
 
             return False
 
-        same = checkMeshSimilarity(expectedMesh, actualMesh, 0.2)
+        # Indicates if the mesh is equal to any of the next 3 operations
+        same = False
+        # Indicates which mesh is the equivalent (-1 if none)
+        meshIndex = -1
+        for i, mesh in enumerate(expectedMeshes):
+            if(checkMeshSimilarity(mesh, actualMesh, 0.2)):
+                same = True
+                meshIndex = i
+                break
 
         if not same:
             print("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
@@ -1558,7 +1566,7 @@ class Tutorial:
 
         #     return False
 
-        return same
+        return same, meshIndex
 
 
     def validateStep(self, step):
@@ -1583,6 +1591,7 @@ class Tutorial:
 
             correct = False
             tolerance = self.tutorialSteps[self.state][-1]["tolerance"]/100
+            meshIndex = -1
 
             if (editMode and activeObj and activeObj.name == currentStep[-2]):
                 # Checking if user is in edit mode and the name of the object selected is the same as the target operation
@@ -1620,7 +1629,18 @@ class Tutorial:
                         correct = False
 
                 else: 
-                    correct = self.validateFinalValues(tolerance, currentStep[1], actualMesh, self.tutorialSteps[self.state-1][1], objName)
+                    meshes = []
+                    numberOfSteps = len(self.tutorialSteps)
+                    
+                    for i in range (self.state, self.state + 3 if numberOfSteps >= self.state + 3 else numberOfSteps):
+                        # Considers the next 3 meshes states. In the case that current state + 3 overflows number of steps, considers until the end of steps
+
+                        step = self.tutorialSteps[i][1]
+                        if "vertices" in step and "faces" in step:
+                            # If there is a description of the mesh, it is possible to check its similarity
+                            meshes.append(step)
+
+                    correct, meshIndex = self.validateFinalValues(tolerance, meshes, actualMesh, self.tutorialSteps[self.state-1][1], objName)
 
             # Checking if the name of the operation is the same
             elif filteredOp[0] == self.tutorialSteps[self.state][0]:
@@ -1633,7 +1653,8 @@ class Tutorial:
                     return ['end']
                 
                 else:
-                    self.state += 1
+                    # If found an equivalent mesh in the next operations, can skip some steps
+                    self.state += 1 if meshIndex == -1 else meshIndex + 1
                     return ['correct']
 
         return ['wrong', filteredOp, self.tutorialSteps[self.state]] # List with wrong and correct operation
