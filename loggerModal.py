@@ -1630,9 +1630,10 @@ class Tutorial:
 
                 else: 
                     meshes = []
+                    numberOfMeshes = 5
                     numberOfSteps = len(self.tutorialSteps)
                     
-                    for i in range (self.state, self.state + 3 if numberOfSteps >= self.state + 3 else numberOfSteps):
+                    for i in range (self.state, self.state + numberOfMeshes if numberOfSteps >= self.state + numberOfMeshes else numberOfSteps):
                         # Considers the next 3 meshes states. In the case that current state + 3 overflows number of steps, considers until the end of steps
 
                         step = self.tutorialSteps[i][1]
