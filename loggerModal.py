@@ -27,6 +27,7 @@ globalLastOp = None
 tutorialMode = False
 tutFileName = ""
 ignoreLastOp = False
+userFeedback = ""
 
 # ======================================================================================================================= #
 # ============================================= Cache Related =========================================================== #
@@ -1291,6 +1292,38 @@ def checkMeshSimilarity (meshDict1, meshDict2, margin):
 
     return found
 
+def update_user_feedback(new_feedback):
+    "Updates what s shown for the user in the UI"
+
+    bpy.context.scene.user_feedback = new_feedback
+
+    # Redraw the UI to update with new info
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+
+
+def split_text(text, width=40):
+    """Splits the text into chunks of size width"""
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+
+    for word in words:
+        if len(current_line) + len(word) + 1 <= width:
+            if current_line:
+                current_line += " "
+            current_line += word
+        else:
+            lines.append(current_line)
+            current_line = word
+
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
 # ======================================================================================================================= #
@@ -1387,6 +1420,7 @@ class Tutorial:
         # tolerance: Percentage/100 of tolerance for vertices location 
         # expectedMeshes: list of dictionaries of all the vertices and their expected locations of the next 3 operations
         # Returns a list of incorrect indices and [] if all correct
+        global userFeedback
 
         expFacesLen = len(list(expectedMeshes[0]["faces"].values()))
         actFacesLen = len(list(actualMesh["faces"].values()))
@@ -1420,8 +1454,10 @@ class Tutorial:
 
                     if (missing == 1):
                         print("ERROR FOUND! There is 1 vertex missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There is 1 vertex missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i vertices missing in this object. Be sure to add them at the correct location so the tutorial can continue!" %(missing))
+                        update_user_feedback("ERROR FOUND! There are " + str(missing) + " vertices missing in this object. Be sure to add them at the correct location so the tutorial can continue!")
                     
                 else:
                     # Means that there are additional vertices
@@ -1430,8 +1466,10 @@ class Tutorial:
 
                     if (additional == 1):
                         print("ERROR FOUND! There is 1 additional vertex in this object. Be sure to delete the correct one so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There is 1 additional vertex in this object. Be sure to delete the correct one so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i additional vertices in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
+                        update_user_feedback("ERROR FOUND! There are " + str(additional) + " additional vertices in this object. Be sure to delete the corect ones so the tutorial can continue!")
 
             elif lastFacesLen != actFacesLen and lastFacesLen != 0:
                 # Means the mesh is not in the correct configuration to follow to next step
@@ -1443,8 +1481,10 @@ class Tutorial:
 
                     if (missing == 1):
                         print("ERROR FOUND! There is 1 face missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There is 1 face missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!" %(missing))
+                        update_user_feedback("ERROR FOUND! There are "+ missing +" faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!")
                     
                 else:
                     # Means that there are additional faces
@@ -1453,8 +1493,10 @@ class Tutorial:
 
                     if (additional == 1):
                         print("ERROR FOUND! There is 1 additional face in this object. Be sure to delete the correct one so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There is 1 additional face in this object. Be sure to delete the correct one so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
+                        update_user_feedback("ERROR FOUND! There are "+ additional +" additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!")
 
             else:
                 # Means the mesh is ready fot the next step, so now compare the actual vertices to the expected for the next op
@@ -1467,8 +1509,10 @@ class Tutorial:
 
                     if (missing == 1):
                         print("There is still 1 vertex missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
+                        update_user_feedback("There is still 1 vertex missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
                     else:
                         print("There are %i vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
+                        update_user_feedback("There are "+ missing +" vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
                     
                 elif (expVertsLen < actVertsLen):
                     # Means that there are additional vertices
@@ -1477,8 +1521,10 @@ class Tutorial:
 
                     if (additional == 1):
                         print("There is still 1 additional vertex in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
+                        update_user_feedback("There is still 1 additional vertex in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
                     else:
                         print("There are %i additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
+                        update_user_feedback("There are "+ additional +" additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
 
                 if (expFacesLen > actFacesLen):
                     # Means that some faces are missing
@@ -1487,8 +1533,10 @@ class Tutorial:
 
                     if (missing == 1):
                         print("There is still 1 face missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
+                        update_user_feedback("There is still 1 face missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
                     else:
                         print("There are %i faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
+                        update_user_feedback("There are "+ missing +" faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
                     
                 elif (expFacesLen < actFacesLen):
                     # Means that there are additional faces
@@ -1497,8 +1545,10 @@ class Tutorial:
 
                     if (additional == 1):
                         print("There is still 1 additional face in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
+                        update_user_feedback("There is still 1 additional face in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
                     else:
                         print("There are %i additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
+                        update_user_feedback("There are "+ additional +" additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
 
             # if expectedLen > actualLen:
             #     # Means new vertices
@@ -1512,7 +1562,7 @@ class Tutorial:
             #     #     if (key not in expectedVerts): difference.append(key)
             #     highlightVertices(objName, actualVerts, expectedVerts, tolerance)
 
-            return False
+            return False, -1
 
         # Indicates if the mesh is equal to any of the next 3 operations
         same = False
@@ -1526,6 +1576,7 @@ class Tutorial:
 
         if not same:
             print("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
+            update_user_feedback("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
 
         # # Convert the dictionary values to a NumPy array
         # values_array = np.abs(np.array(list(expectedVerts.values())))
@@ -1719,15 +1770,21 @@ class ModalOperator(bpy.types.Operator):
                             del stepDescription[1]["faces"]
                             
                         print("\n============================ NEXT STEP: Perform the following operation: ", stepDescription)
+                        update_user_feedback("Correct operation! Your current progress: " + str(self.tut.getProgress() * 100) + "%. Next step:  Perform the following operation: " + str(stepDescription[0]) + " on object '" + str(stepDescription[-2]) + "'")
 
                     elif(result == ['end']):
+                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.user.getUserDifficulties()))
                         print("============================ Tutorial Finished!")
                         print("\n RECOMMENDATIONS: ", self.user.makeRecommendation())
+                        stopLogger(reason=1)
                     else:
                         self.user.updateUserProfile(self.currOperation[0], False)
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2][0])
                         print("============================ Got:                ", result[1][0])
+
+                        if bpy.context.scene.user_feedback[:7] == "Correct":
+                            update_user_feedback("WRONG OPERATION! Expected operation: '" + str(result[2][0]) + "' but got: '" + str(result[1][0]) + "'")
                 
                 else:
                     self.tut.addTutorialStep(self.currOperation)
@@ -1757,6 +1814,8 @@ class ModalOperator(bpy.types.Operator):
     def invoke(self, context, event):
         if context.object or context.object == None:
 
+            # bpy.context.window_manager.popup_menu(drawPopup, title="Greeting", icon='INFO')
+
             global tutFileName
             global tutorialMode
 
@@ -1769,6 +1828,8 @@ class ModalOperator(bpy.types.Operator):
                 self.tutorialMode = True
 
                 self.user = userModel()
+                firstStep = self.tut.getNextStep()
+                update_user_feedback("First step:  Perform the following operation: " + str(firstStep[0]) + " on object '" + str(firstStep[-2]) + "'")
 
             context.window_manager.modal_handler_add(self)
 
@@ -1802,6 +1863,8 @@ class ModalOperator(bpy.types.Operator):
             self.report({'WARNING'}, "No active object, could not finish")
             return {'CANCELLED'}
         
+# def drawPopup(self, context):
+#     self.layout.label(text="Hello World")
 
 class userModel:
 
@@ -1840,7 +1903,7 @@ class userModel:
         print("############ DEBUG: All terms: ", self.allTerms)
 
     def getAllTerms(self):
-        # Returns a list containing all the names of operations in orderfor the Rocchio's algorithm
+        # Returns a list containing all the names of operations in order for the Rocchio's algorithm
         return self.allTerms
 
 
@@ -1911,6 +1974,53 @@ class userModel:
 
         return recommendations
 
+    def getUserDifficulties(self):
+        "Return the 2 (if there are) most positive terms names"
+        
+        difficulties = []
+        userProfileList = list(self.userProfile)
+        difficultiesIndices = [userProfileList.index(x) for x in sorted(userProfileList, reverse=True)[:2]]
+
+        for index in difficultiesIndices:
+            difficulties.append(self.allTerms[index])
+
+        return difficulties
+
+
+# class ShowPopupOperator(bpy.types.Operator):
+#     bl_idname = "wm.show_popup"
+#     bl_label = "Show Popup"
+    
+#     message: bpy.props.StringProperty(name="Message")
+#     original_mouse_x: int = 0
+#     original_mouse_y: int = 0
+
+#     def execute(self, context):
+#         # Restore the original cursor position
+#         return {'FINISHED'}
+
+#     def invoke(self, context, event):
+#         # Save the original cursor position
+#         self.original_mouse_x, self.original_mouse_y = event.mouse_x, event.mouse_y
+
+#         # Adjust the position to top corner (e.g., top left corner)
+#         width, height = context.area.width, context.area.height
+#         x = 20  # X offset from the left
+#         y = height - 50  # Y offset from the top
+        
+#         context.window.cursor_warp(x, y)
+
+#         wm = context.window_manager
+#         # return wm.invoke_popup(self)
+#         # return wm.invoke_props_dialog(self)
+#         bpy.context.window_manager.popup_menu(self.draw, title="Greeting", icon='INFO')
+    
+#     def draw(self, context):
+#         context.window.cursor_warp(self.original_mouse_x, self.original_mouse_y)
+#         layout = self.layout
+#         # layout.label(text=self.message)
+#         layout.label(text="TESTEEE")
+
 class StartLogger(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "object.log_actions"
@@ -1941,7 +2051,7 @@ class StopLogger(bpy.types.Operator):
         # return context.active_object is not None
 
     def execute(self, context):
-        stopLogger(context)
+        stopLogger()
         return {'FINISHED'}
     
 class StartTutorial(bpy.types.Operator):
@@ -1986,8 +2096,6 @@ class LayoutDemoPanel(bpy.types.Panel):
 
         scene = context.scene
         
-        #print("Chamou DRAW")
-
 #        # Create a simple row.
 #        layout.label(text=" Simple Row:")
 
@@ -2050,6 +2158,34 @@ class LayoutDemoPanel(bpy.types.Panel):
 
 #        row.operator("render.render")
 
+class RecommenderMessages(bpy.types.Panel):
+    """Place where the messages are displayed"""
+    bl_idname = "BLENDER_PT_Messages"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Blender Logger'
+    bl_label = "System Messages"
+
+    def draw(self, context):
+        print("CHAMOU DRAW")
+
+        global userFeedback
+        layout = self.layout
+
+        scene = context.scene
+        user_feedback = scene.user_feedback
+
+        # Sys Messages
+        layout.label(text="")
+        # row = layout.row()
+        # row.label(text = user_feedback)
+
+        lines = split_text(user_feedback, width=40)  # Adjust width as needed
+        for line in lines:
+            row = layout.row()
+            row.label(text=line)
+
+
 # ======================================================================================================================= #
 # ======================================================================================================================= #
 # ======================================================================================================================= #
@@ -2082,7 +2218,10 @@ def startLogger(context, tutMode = False, fileName = ""):
     bpy.ops.object.modal_operator('INVOKE_DEFAULT')
     print("============================================== LOGGER STARTED ==============================================")
 
-def stopLogger(context):
+def stopLogger(reason = None):
+
+    if reason == None:
+        update_user_feedback("")
 
     global logCache
     file_path = bpy.path.abspath('//logger_log.txt')
@@ -2108,9 +2247,16 @@ def register():
     bpy.utils.register_class(StopLogger)
     bpy.utils.register_class(StartTutorial)
     bpy.utils.register_class(LayoutDemoPanel)
+    bpy.utils.register_class(RecommenderMessages)
     bpy.utils.register_class(ModalOperator)
+    # bpy.utils.register_class(ShowPopupOperator)
     bpy.types.VIEW3D_MT_object.append(menu_func)
     bpy.types.Scene.tutorial_filename = bpy.props.StringProperty(name="Tutorial Filename", default="")
+    bpy.types.Scene.user_feedback = bpy.props.StringProperty(
+        name="User Feedback",
+        description="System messages displayed here",
+        default="Initial message"
+    )
 
 
 def unregister():
@@ -2118,16 +2264,19 @@ def unregister():
     bpy.utils.unregister_class(StopLogger)
     bpy.utils.unregister_class(StartTutorial)
     bpy.utils.unregister_class(LayoutDemoPanel)
+    bpy.utils.unregister_class(RecommenderMessages)
     bpy.utils.unregister_class(ModalOperator)
+    # bpy.utils.unregister_class(ShowPopupOperator)
     bpy.types.VIEW3D_MT_object.remove(menu_func)
     del bpy.types.Scene.tutorial_filename
+    del bpy.types.Scene.user_feedback
 
 
 if __name__ == "__main__":
     register()
 
     # test call
-    # bpy.ops.object.modal_operator('INVOKE_DEFAULT')
+    # bpy.ops.wm.show_popup('INVOKE_DEFAULT', message="Hello, Blender user!")
 
 '''
 globalLastOp = 'bpy.ops.mesh.extrude_region_move(
