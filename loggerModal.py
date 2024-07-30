@@ -1774,15 +1774,15 @@ class ModalOperator(bpy.types.Operator):
                         update_user_feedback("Correct operation! Your current progress: " + str(self.tut.getProgress() * 100) + "%. Next step:  Perform the following operation: " + str(stepDescription[0]) + " on object '" + str(stepDescription[-2]) + "'")
 
                     elif(result == ['end']):
-                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.user.getUserDifficulties()))
+                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.user.getUserDifficulties()) + "    Tutorials recommended: " + str(self.user.makeRecommendation()))
                         print("============================ Tutorial Finished!")
                         print("\n RECOMMENDATIONS: ", self.user.makeRecommendation())
                         stopLogger(reason=1)
                     else:
-                        self.user.updateUserProfile(self.currOperation[0], False)
+                        # self.user.updateUserProfile(self.currOperation[0], False)
                         
                         # Updates user profile based on what shoud've been done
-                        # self.user.updateUserProfile(result[2][0], False)
+                        self.user.updateUserProfile(result[2][0], False)
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2][0])
                         print("============================ Got:                ", result[1][0])
@@ -2171,7 +2171,6 @@ class RecommenderMessages(bpy.types.Panel):
     bl_label = "System Messages"
 
     def draw(self, context):
-        print("CHAMOU DRAW")
 
         global userFeedback
         layout = self.layout
