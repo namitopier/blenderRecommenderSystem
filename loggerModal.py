@@ -1577,7 +1577,7 @@ class Tutorial:
 
         if not same:
             print("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
-            update_user_feedback("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
+            update_user_feedback("The current mesh topology is different than the expected for the conclusion of this step. Fix it in order to conclude this step! Follow the tutorial to shape it correctly!")
 
         # # Convert the dictionary values to a NumPy array
         # values_array = np.abs(np.array(list(expectedVerts.values())))
