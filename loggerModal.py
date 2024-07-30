@@ -1243,9 +1243,10 @@ def checkMeshSimilarity (meshDict1, meshDict2, margin):
         foundI = -1
         possibleIndices = []
         possibleValues = []
+        precision = 4 # Number of decimals after point
 
         for j in range (len(dict2)):
-            if all(np.abs(dict1[i][k] - dict2[j][k]) <= margin * abs(dict1[i][k]) for k in range(3)):
+            if all(np.abs(np.round(dict1[i][k], precision) - np.round(dict2[j][k], precision)) <= margin * abs(dict1[i][k]) for k in range(3)):
                     # foundI = j
                     # break  # Stop searching for this vertex in dict2 once a match is found
 
@@ -1484,7 +1485,7 @@ class Tutorial:
                         update_user_feedback("ERROR FOUND! There is 1 face missing in this object. Be sure to add it at the correct location so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!" %(missing))
-                        update_user_feedback("ERROR FOUND! There are "+ missing +" faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There are "+ str(missing) +" faces missing in this object. Be sure to add them at the correct location so the tutorial can continue!")
                     
                 else:
                     # Means that there are additional faces
@@ -1496,7 +1497,7 @@ class Tutorial:
                         update_user_feedback("ERROR FOUND! There is 1 additional face in this object. Be sure to delete the correct one so the tutorial can continue!")
                     else:
                         print("ERROR FOUND! There are %i additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!" %(additional))
-                        update_user_feedback("ERROR FOUND! There are "+ additional +" additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!")
+                        update_user_feedback("ERROR FOUND! There are "+ str(additional) +" additional faces in this object. Be sure to delete the corect ones so the tutorial can continue!")
 
             else:
                 # Means the mesh is ready fot the next step, so now compare the actual vertices to the expected for the next op
@@ -1512,7 +1513,7 @@ class Tutorial:
                         update_user_feedback("There is still 1 vertex missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
                     else:
                         print("There are %i vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
-                        update_user_feedback("There are "+ missing +" vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
+                        update_user_feedback("There are "+ str(missing) +" vertices missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
                     
                 elif (expVertsLen < actVertsLen):
                     # Means that there are additional vertices
@@ -1524,7 +1525,7 @@ class Tutorial:
                         update_user_feedback("There is still 1 additional vertex in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
                     else:
                         print("There are %i additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
-                        update_user_feedback("There are "+ additional +" additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
+                        update_user_feedback("There are "+ str(additional) +" additional vertices in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
 
                 if (expFacesLen > actFacesLen):
                     # Means that some faces are missing
@@ -1536,7 +1537,7 @@ class Tutorial:
                         update_user_feedback("There is still 1 face missing in this object in order to conclude this step! Follow the tutorial to add it at the correct location!")
                     else:
                         print("There are %i faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!" %(missing))
-                        update_user_feedback("There are "+ missing +" faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
+                        update_user_feedback("There are "+ str(missing) +" faces missing in this object in order to conclude this step! Follow the tutorial to add them at the correct location!")
                     
                 elif (expFacesLen < actFacesLen):
                     # Means that there are additional faces
@@ -1548,7 +1549,7 @@ class Tutorial:
                         update_user_feedback("There is still 1 additional face in this object in order to conclude this step! Follow the tutorial to delete it at the correct location!")
                     else:
                         print("There are %i additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
-                        update_user_feedback("There are "+ additional +" additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
+                        update_user_feedback("There are "+ str(additional) +" additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
 
             # if expectedLen > actualLen:
             #     # Means new vertices
@@ -1779,6 +1780,9 @@ class ModalOperator(bpy.types.Operator):
                         stopLogger(reason=1)
                     else:
                         self.user.updateUserProfile(self.currOperation[0], False)
+                        
+                        # Updates user profile based on what shoud've been done
+                        # self.user.updateUserProfile(result[2][0], False)
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2][0])
                         print("============================ Got:                ", result[1][0])
