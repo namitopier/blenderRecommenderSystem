@@ -1685,13 +1685,17 @@ class Tutorial:
 
                 else: 
                     meshes = []
-                    numberOfMeshes = 5
+                    numberOfMeshes = 10
                     numberOfSteps = len(self.tutorialSteps)
                     
                     for i in range (self.state, self.state + numberOfMeshes if numberOfSteps >= self.state + numberOfMeshes else numberOfSteps):
-                        # Considers the next 3 meshes states. In the case that current state + 3 overflows number of steps, considers until the end of steps
+                        # Considers the next 5 meshes states. In the case that current state + 5 overflows number of steps, considers until the end of steps
 
                         step = self.tutorialSteps[i][1]
+                        if step["editMode"] == False and self.tutorialSteps[i][0] == 'Toggle Edit Mode':
+                            # Means that edit mode was disabled, thus there is no reason to continue comparing following mesh structures
+                            break
+
                         if "vertices" in step and "faces" in step:
                             # If there is a description of the mesh, it is possible to check its similarity
                             meshes.append(step)
