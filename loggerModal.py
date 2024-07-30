@@ -1231,6 +1231,9 @@ def checkMeshSimilarity (meshDict1, meshDict2, margin):
     faces1 = np.array( list(meshDict1["faces"].values()) )
     faces2 = list(meshDict2["faces"].values())
 
+    if len(vert1) != len(vert2) or len(faces1) != len(faces2):
+        return False
+
     def checkCorrespondence (dict1, dict2, i):
         # Internal function that receives 2 dictionaries containing vertices/faces
         # and tries to find a correspondence between all entries of dict1 with all of dict2
@@ -1239,7 +1242,7 @@ def checkMeshSimilarity (meshDict1, meshDict2, margin):
         # increasing performance.
         # RETURNS: -1 if no correspondence found (so the mesh is wrong) or modified dict2 if found
         # correspondence (it deletes the found correspondent) .
-    
+
         foundI = -1
         possibleIndices = []
         possibleValues = []
