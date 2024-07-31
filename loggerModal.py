@@ -1,13 +1,13 @@
 bl_info = {
-    "name": "Blender Logger",
+    "name": "Blender Recommender System",
     "author": "Pier Luigi Nakai Ricchetti",
     "version": (1, 0),
     "blender": (3, 2, 2),
-    "location": "View3D > Sidebar > Blender Logger",
+    "location": "View3D > Sidebar > Blender Recommender",
     "description": "Logs user actions",
     "warning": "",
     "wiki_url": "",
-    "category": "Blender Logger",
+    "category": "Blender Recommender",
 }
 
 import bpy, bmesh
@@ -518,25 +518,8 @@ notOperatorsDict = {
 # ============================================ Util Functions =========================================================== #
 # ======================================================================================================================= #
 
-# def formatOperation(operator, isSame = False):
-#     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
-
-#     if (type(isSame) == bool):
-#         # Means it is an operator
-#         opName = operator.name
-#         result = operatorsDict.get(opName, defaultCase)(operator)
-
-#     else:
-#         # Means it is not an operator
-#         formattedAction = tuple([part.split('["')[0].split(" =")[0] for part in isSame.split('.')][:-1])
-#         result = notOperatorsDict.get(formattedAction, notOperatorDefaultCase)(isSame)
-
-#     return result
-
 def formatOperation2(operator, isSame):
     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
-
-# =======================================================================================================
 
     activeObj = bpy.context.view_layer.objects.active             
     mode = None if activeObj == None else activeObj.mode 
@@ -703,46 +686,7 @@ def formatOperation2(operator, isSame):
         translated = [operator.name, result, None if activeObj == None else activeObj.name]
 
     else:
-        # # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
-
-        # translated = [""]
-
-        # # Get the first (because it might have more equal signs on the other side) occurrence of " = " to divide the 2 parts
-        # processed = isSame.split(" = ", maxsplit=1)
-
-        # # Get the value of the property
-        # value = eval(processed[1])
-
-        # # List of names, groups etc and operation "address"
-        # groupsList = [["group", ""], ["subgroup", ""], ["propIndex", ""]]
-
-        # # Get all the operator "address"
-        # processed = processed[0].split(".")
-
-        # groupIndex = 0
-
-        # for i, addr in enumerate(processed[:-1]): # Ignore the last one since it is the property name changed
-        #     if "[" in addr:
-        #         # Get what is inside: ['groupname']
-        #         groupName = addr[addr.index("[")+1:addr.index("]")]
-        #         groupName = eval(groupName)
-                
-        #         if groupIndex <= 2:
-        #             groupsList[groupIndex][1] = groupName
-                
-        #         else:
-        #             groupsList.append(["other"+str(groupIndex-2), groupName])
-
-        #         groupIndex += 1
-
-        #         # Get the address without the group name (also getting everything after it because there might be some operations that contains it)
-        #         translated[0] = translated[0] + " " + addr[ 0 : addr.index("[") ] + addr[ addr.index("]")+1 : ]
-
-        #     else:
-        #         translated[0] = translated[0] + " " + addr
-
-        # groupsList.append([processed[-1], value])
-        # translated.append(dict(groupsList))
+        # In this case, it is considering everything else that is not an operation (bpy.ops) but still is an user action
 
         activeObj = bpy.context.view_layer.objects.active
 
@@ -863,7 +807,6 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
             # Must consider only strings that start with "bpy" otherwise it is not a valid user action
         
             numberOfOp = len(operations)
-            # print("#######################  len(operations) > numberOfOp and lastOp = ", lastOp)
 
             if (newOp == None):
                 # Operations like undo (ctrl z) or other specific operations are recognized as none
@@ -1092,7 +1035,6 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
 
     return [translatedOp[0], filtered, translatedOp[2], additionalInfo]
 
-# def highlightVertices(object_name, vertex_indices, highlight_color):
 def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
     # objectName = Name of the target object
     # firstPos = dictionary containing all the selected vertices position before the operation
@@ -1160,7 +1102,6 @@ def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
             bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
             bpy.context.object.show_name = True
             bpy.context.object.show_in_front = True
-            # bpy.context.object.hide_select = True
             bpy.context.object.name = name
 
     bpy.ops.object.select_all(action='DESELECT')
@@ -1374,23 +1315,6 @@ class Tutorial:
 
     def getNextStep(self):
         nextStep = self.tutorialSteps[self.state]
-        # tolerance = nextStep[-1]["tolerance"]/100
-
-        # clearHighlights()
-        
-        # if (nextStep[1]["editMode"] and ("selectedVertices" in nextStep[1]) and len(nextStep[1]["selectedVertices"]) > 0):
-            # If next operation is in edit mode and had any selected vertex, highlight them
-            # object_name = nextStep[-2] 
-            # vertex_indices = nextStep[1]["selectedVertices"]
-            # actualVertices = getObjectsOnCache()[object_name]["vertices"]
-
-            # Get positions of all vertices to be moved
-            # firstPos = {key: value for key, value in actualVertices.items() if key in vertex_indices}
-            # Get final positions of all vertices 
-            # secondPos = {key: value for key, value in nextStep[1]["vertices"].items() if key in vertex_indices}
-
-            # highlightVertices(object_name, firstPos, secondPos, tolerance)
-        
         return nextStep
 
     def recursiveValidate(self, structure, structureCompare, structureType, tolerance):
@@ -1450,7 +1374,6 @@ class Tutorial:
             if lastVertsLen != actVertsLen and lastVertsLen != 0:
                 # Means the mesh is not in the correct configuration to follow to next step
 
-                # highlightVertices(objName, actualVerts, lastStep["vertices"], tolerance)
                 if (lastVertsLen > actVertsLen):
                     # Means that some vertices are missing
                     
@@ -1505,7 +1428,6 @@ class Tutorial:
             else:
                 # Means the mesh is ready fot the next step, so now compare the actual vertices to the expected for the next op
                 
-                # highlightVertices(objName, actualVerts, expectedVerts, tolerance)
                 if (expVertsLen > actVertsLen):
                     # Means that some vertices are missing
                     
@@ -1554,18 +1476,6 @@ class Tutorial:
                         print("There are %i additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!" %(additional))
                         update_user_feedback("There are "+ str(additional) +" additional faces in this object in order to conclude this step!. Follow the tutorial to delete them at the correct location!")
 
-            # if expectedLen > actualLen:
-            #     # Means new vertices
-            #     # for key in expectedVerts.keys():
-            #     #     if (key not in actualVerts): difference.append(key)
-            #     highlightVertices(objName, {}, expectedVerts, tolerance)
-            
-            # else:
-            #     # Means deletion of verts
-            #     # for key in actualVerts.keys():
-            #     #     if (key not in expectedVerts): difference.append(key)
-            #     highlightVertices(objName, actualVerts, expectedVerts, tolerance)
-
             return False, -1
 
         # Indicates if the mesh is equal to any of the next 3 operations
@@ -1581,45 +1491,6 @@ class Tutorial:
         if not same:
             print("There are some vertices/faces wrong located in this object in order to conclude this step! Follow the tutorial to move them to the correct location!")
             update_user_feedback("The current mesh topology is different than the expected for the conclusion of this step. Fix it in order to conclude this step! Follow the tutorial to shape it correctly!")
-
-        # # Convert the dictionary values to a NumPy array
-        # values_array = np.abs(np.array(list(expectedVerts.values())))
-        # check_array = np.abs(np.array(list(actualVerts.values())))
-
-        # # Calculate the upper and lower bounds for each value
-        # upper_bound = values_array * (1 + tolerance)
-        # lower_bound = values_array * (1 - tolerance)
-
-        # # Check if each value lies within the tolerance interval
-        # within_tolerance_interval = np.all((check_array >= lower_bound) & (check_array <= upper_bound), axis=1)
-
-        # if (np.all(within_tolerance_interval)):
-        #     # Means all vertices are correct
-        #     return True
-        #     # return []
-
-        # else:
-        #     # incorrect_indices = np.where(~within_tolerance_interval)
-        #     # return incorrect_indices[0]
-        #     # clearHighlights()
-
-        #     # Get positions of all wrong vertices (to be moved)
-        #     # firstPos = {key: value for key, value in actualVerts.items() if key in incorrect_indices[0]}
-        #     # Get final positions of all vertices 
-        #     # secondPos = {key: value for key, value in expectedVerts.items() if key in incorrect_indices[0]}
-
-        #     # highlightVertices(objName, firstPos, secondPos, tolerance)
-
-        #     incorrect_indices = np.where(~within_tolerance_interval)
-        #     incorrectCount = np.shape(incorrect_indices)[-1]
-            
-        #     if (incorrectCount == 1):
-        #         print("There is still 1 wrong located vertex in this object in order to conclude this step! Follow the tutorial to move it to the correct location!")
-            
-        #     else:
-        #         print("There are %i wrong located vertices in this object in order to conclude this step! Follow the tutorial to move them to the correct location!" %(incorrectCount))
-
-        #     return False
 
         return same, meshIndex
 
@@ -1652,25 +1523,7 @@ class Tutorial:
                 # Checking if user is in edit mode and the name of the object selected is the same as the target operation
 
                 objName = currentStep[-2]
-                # actualVerts = getObjectsOnCache()[objName]["vertices"]
                 actualMesh = getObjectsOnCache()[objName]
-
-                # incorrectList = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, objName)
-
-                # if len(incorrectList) == 0:
-                #     correct = True
-
-                # else: 
-                #     clearHighlights()
-
-                #     # Get positions of all wrong vertices (to be moved)
-                #     firstPos = {key: value for key, value in actualVerts.items() if key in incorrectList}
-                #     # Get final positions of all vertices 
-                #     secondPos = {key: value for key, value in currentStep[1]["vertices"].items() if key in incorrectList}
-
-                #     highlightVertices(objName, firstPos, secondPos, tolerance)
-
-                # correct = self.validateFinalValues(tolerance, currentStep[1]["vertices"], actualVerts, self.tutorialSteps[self.state-1][1], objName)
                 
                 if "vertices" not in currentStep[1]:
                     # If there is no vertices/faces in the next operation, means it was something like "add material"
@@ -1759,7 +1612,6 @@ class ModalOperator(bpy.types.Operator):
             if (type(isSame) != bool):
 
                 # Has to save in the formatted form because otherwise it will save the struct in the memory
-                # print("####################### active_operator = ", context.active_operator)
                 self.currOperation = formatOperation2(context.active_operator, isSame)
                 
                 if (len(self.currOperation) == 0): 
@@ -1802,9 +1654,6 @@ class ModalOperator(bpy.types.Operator):
 
 
                 self.prevOperation = self.currOperation
-
-                # self.tut.validateStep(formattedOp)
-                # print("\n Progress: ", self.tut.getProgress())
                 
             return {'PASS_THROUGH'}
 
@@ -1814,24 +1663,16 @@ class ModalOperator(bpy.types.Operator):
             print("=============== CANCELLING LOGGER MODAL ===============")
             return {'CANCELLED'}
 
-        # else: 
-        #     print(event.type)
-
-        # return {'RUNNING_MODAL'}
-
         else:
             return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
         if context.object or context.object == None:
 
-            # bpy.context.window_manager.popup_menu(drawPopup, title="Greeting", icon='INFO')
-
             global tutFileName
             global tutorialMode
 
             self.tut = Tutorial()
-            # self.tut.loadCubePyramidTutorial()
 
             if tutorialMode:
                 # If in tutorial mode, has to load the tutorial specified by name
@@ -1844,7 +1685,6 @@ class ModalOperator(bpy.types.Operator):
 
             context.window_manager.modal_handler_add(self)
 
-            # if context.object == None:
             #     return {'RUNNING_MODAL'}
 
             # Fill the cache with the current objects and modifiers on the scene
@@ -1865,7 +1705,6 @@ class ModalOperator(bpy.types.Operator):
             operations = getPerformedOperations()
             numberOfOp = len(operations)
 
-            # print("\n============================ NEXT STEP: Perform the following operation: ", self.tut.getNextStep())
             print("================================= Initializing in the CREATE TUTORIAL MODE")
 
             return {'RUNNING_MODAL'}
@@ -1873,9 +1712,6 @@ class ModalOperator(bpy.types.Operator):
         else:
             self.report({'WARNING'}, "No active object, could not finish")
             return {'CANCELLED'}
-        
-# def drawPopup(self, context):
-#     self.layout.label(text="Hello World")
 
 class userModel:
 
@@ -1997,41 +1833,6 @@ class userModel:
 
         return difficulties
 
-
-# class ShowPopupOperator(bpy.types.Operator):
-#     bl_idname = "wm.show_popup"
-#     bl_label = "Show Popup"
-    
-#     message: bpy.props.StringProperty(name="Message")
-#     original_mouse_x: int = 0
-#     original_mouse_y: int = 0
-
-#     def execute(self, context):
-#         # Restore the original cursor position
-#         return {'FINISHED'}
-
-#     def invoke(self, context, event):
-#         # Save the original cursor position
-#         self.original_mouse_x, self.original_mouse_y = event.mouse_x, event.mouse_y
-
-#         # Adjust the position to top corner (e.g., top left corner)
-#         width, height = context.area.width, context.area.height
-#         x = 20  # X offset from the left
-#         y = height - 50  # Y offset from the top
-        
-#         context.window.cursor_warp(x, y)
-
-#         wm = context.window_manager
-#         # return wm.invoke_popup(self)
-#         # return wm.invoke_props_dialog(self)
-#         bpy.context.window_manager.popup_menu(self.draw, title="Greeting", icon='INFO')
-    
-#     def draw(self, context):
-#         context.window.cursor_warp(self.original_mouse_x, self.original_mouse_y)
-#         layout = self.layout
-#         # layout.label(text=self.message)
-#         layout.label(text="TESTEEE")
-
 class StartLogger(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "object.log_actions"
@@ -2042,10 +1843,8 @@ class StartLogger(bpy.types.Operator):
         # Can only click here if logger hasn't started yet
         global useLogger
         return not useLogger
-        # return context.active_object is not None
 
     def execute(self, context):
-        # clearHighlights()
         startLogger(context)
         return {'FINISHED'}
     
@@ -2092,49 +1891,16 @@ class StartTutorial(bpy.types.Operator):
     
 class LayoutDemoPanel(bpy.types.Panel):
     """Creates a Panel in the scene context of the properties editor"""
-    # bl_label = "Layout Demo"
     bl_idname = "BLENDER_PT_Logger"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Blender Logger'
     bl_label = "Logger"
-    # bl_space_type = 'PROPERTIES'
-    # bl_region_type = 'WINDOW'
-    # bl_context = "scene"
 
     def draw(self, context):
         layout = self.layout
 
         scene = context.scene
-        
-#        # Create a simple row.
-#        layout.label(text=" Simple Row:")
-
-#        row = layout.row()
-#        row.prop(scene, "frame_start")
-#        row.prop(scene, "frame_end")
-
-#        # Create an row where the buttons are aligned to each other.
-#        layout.label(text=" Aligned Row:")
-
-#        row = layout.row(align=True)
-#        row.prop(scene, "frame_start")
-#        row.prop(scene, "frame_end")
-
-#        # Create two columns, by using a split layout.
-#        split = layout.split()
-
-#        # First column
-#        col = split.column()
-#        col.label(text="Column One:")
-#        col.prop(scene, "frame_end")
-#        col.prop(scene, "frame_start")
-
-#        # Second column, aligned
-#        col = split.column(align=True)
-#        col.label(text="Column Two:")
-#        col.prop(scene, "frame_start")
-#        col.prop(scene, "frame_end")
 
         # Start Logger
         layout.label(text="Start the logger:")
@@ -2158,17 +1924,6 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.scale_y = 3.0
         row.operator("object.start_tutorial")
 
-        # Different sizes in a row
-#        layout.label(text="Different button sizes:")
-#        row = layout.row(align=True)
-#        row.operator("render.render")
-
-#        sub = row.row()
-#        sub.scale_x = 2.0
-#        sub.operator("render.render")
-
-#        row.operator("render.render")
-
 class RecommenderMessages(bpy.types.Panel):
     """Place where the messages are displayed"""
     bl_idname = "BLENDER_PT_Messages"
@@ -2187,8 +1942,6 @@ class RecommenderMessages(bpy.types.Panel):
 
         # Sys Messages
         layout.label(text="")
-        # row = layout.row()
-        # row.label(text = user_feedback)
 
         lines = split_text(user_feedback, width=40)  # Adjust width as needed
         for line in lines:
@@ -2259,7 +2012,6 @@ def register():
     bpy.utils.register_class(LayoutDemoPanel)
     bpy.utils.register_class(RecommenderMessages)
     bpy.utils.register_class(ModalOperator)
-    # bpy.utils.register_class(ShowPopupOperator)
     bpy.types.VIEW3D_MT_object.append(menu_func)
     bpy.types.Scene.tutorial_filename = bpy.props.StringProperty(name="Tutorial Filename", default="")
     bpy.types.Scene.user_feedback = bpy.props.StringProperty(
@@ -2276,7 +2028,6 @@ def unregister():
     bpy.utils.unregister_class(LayoutDemoPanel)
     bpy.utils.unregister_class(RecommenderMessages)
     bpy.utils.unregister_class(ModalOperator)
-    # bpy.utils.unregister_class(ShowPopupOperator)
     bpy.types.VIEW3D_MT_object.remove(menu_func)
     del bpy.types.Scene.tutorial_filename
     del bpy.types.Scene.user_feedback
@@ -2284,54 +2035,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
-    # test call
-    # bpy.ops.wm.show_popup('INVOKE_DEFAULT', message="Hello, Blender user!")
-
-'''
-globalLastOp = 'bpy.ops.mesh.extrude_region_move(
-    {
-    MESH_OT_extrude_region: {
-        "use_normal_flip":False,
-        "use_dissolve_ortho_edges":False,
-        "mirror":False
-        },
-    TRANSFORM_OT_translate: {
-        "value":(0, 0, 0.716544),
-        "orient_type":"NORMAL",
-        "orient_matrix":((0, 1, 0), (-1, 0, 0), (0, 0, 1)),
-        "orient_matrix_type":"NORMAL",
-        "constraint_axis":(False, False, True),
-        "mirror":False,
-        "use_proportional_edit":False,
-        "proportional_edit_falloff":"SMOOTH",
-        "proportional_size":1,
-        "use_proportional_connected":False,
-        "use_proportional_projected":False,
-        "snap":False,
-        "snap_elements":{"INCREMENT"},
-        "use_snap_project":False,
-        "snap_target":"CLOSEST",
-        "use_snap_self":True,
-        "use_snap_edit":True,
-        "use_snap_nonedit":True,
-        "use_snap_selectable":False,
-        "snap_point":(0, 0, 0),
-        "snap_align":False,
-        "snap_normal":(0, 0, 0),
-        "gpencil_strokes":False,
-        "cursor_transform":False,
-        "texture_space":False,
-        "remove_on_cancel":False,
-        "use_duplicated_keyframes":False,
-        "view2d_edge_pan":False,
-        "release_confirm":False,
-        "use_accurate":False,
-        "alt_navigation":True,
-        "use_automerge_and_split":False
-        }
-    }
-
-    MESH_OT_extrude_region: {"use_normal_flip":False, "use_dissolve_ortho_edges":False, "mirror":False}, TRANSFORM_OT_translate: {"value":(0, 0, 0.716544), "orient_type":"NORMAL", "orient_matrix":((0, 1, 0), (-1, 0, 0), (0, 0, 1)), "orient_matrix_type":"NORMAL", "constraint_axis":(False, False, True), "mirror":False, "use_proportional_edit":False, "proportional_edit_falloff":"SMOOTH", "proportional_size":1, "use_proportional_connected":False, "use_proportional_projected":False, "snap":False, "snap_elements":{"INCREMENT"}, "use_snap_project":False, "snap_target":"CLOSEST", "use_snap_self":True, "use_snap_edit":True, "use_snap_nonedit":True, "use_snap_selectable":False, "snap_point":(0, 0, 0), "snap_align":False, "snap_normal":(0, 0, 0), "gpencil_strokes":False, "cursor_transform":False, "texture_space":False, "remove_on_cancel":False, "use_duplicated_keyframes":False, "view2d_edge_pan":False, "release_confirm":False, "use_accurate":False, "alt_navigation":True, "use_automerge_and_split":False})'
-
-'''
