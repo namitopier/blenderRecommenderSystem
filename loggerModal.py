@@ -87,6 +87,367 @@ def getModifiersOnCache():
 # ======================================================================================================================= #
 # ============================================ Util Functions =========================================================== #
 # ======================================================================================================================= #
+    
+def getAllObjects(firstCall = False):
+    # Gets all the objects in the scene.
+    # If it is a new object, firstcall == True and thus all its vertices must be considered
+
+    objsDict = {}
+    changedMode = False
+
+    if firstCall:
+        activeObj = bpy.context.view_layer.objects.active
+
+        if activeObj and activeObj.mode == "OBJECT" and activeObj.type == 'MESH':
+            bpy.ops.object.editmode_toggle()
+            changedMode = True
+
+    objs = bpy.context.scene.objects
+    for obj in objs:
+        objsDict[obj.name] = {  "scale": list(obj.scale),
+                                "location": list(obj.location),
+                                "rotation": list(obj.rotation_euler),
+                                "vertices": {} if not firstCall or not activeObj else getAllVerticesOfObject(),
+                                "faces": {} if not firstCall or not activeObj else getAllFacesOfObject(),
+                                "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+
+    if changedMode:
+        bpy.ops.object.editmode_toggle()
+
+    return objsDict
+
+def getAllModifiers():
+    # Gets all the modifiers of all the objects in the scene. Uses the getAllObjects() function
+
+    objsList = list(getAllObjects().keys())
+    modifiersList = []
+    editMode = False
+
+    if bpy.context.object != None:
+        prevSelectedObj = bpy.context.object.name 
+
+        if(bpy.context.object.mode == 'EDIT'):
+            editMode = True
+            bpy.ops.object.mode_set(mode = "OBJECT")
+    
+    else:
+        prevSelectedObj = None
+
+    for objectName in objsList:
+
+        if objectName in bpy.data.objects:
+            # Deselect all currently selected objects
+            bpy.ops.object.select_all(action='DESELECT')
+
+            # Select the object
+            bpy.data.objects[objectName].select_set(True)
+
+            bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+
+        else:
+            print(f"Object '{objectName}' not found")
+
+        selected_object = bpy.context.view_layer.objects.active
+
+        if selected_object is not None:
+            # Get all modifiers of the selected object
+            objModifiers = [modifier.name for modifier in selected_object.modifiers]
+            
+            modifiersList += objModifiers
+    
+    if prevSelectedObj is not None:
+
+        # Deselect all currently selected objects
+        bpy.ops.object.select_all(action='DESELECT')
+
+        # Select the object and sets it to be the active one
+        bpy.data.objects[prevSelectedObj].select_set(True)
+        bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+
+        # If it was in edit mode before, set again it
+        if(editMode):
+            bpy.ops.object.mode_set(mode = "EDIT")
+
+    return modifiersList
+
+def getAllVerticesOfObject():
+    # Gets all Vertices of the active object. Returns dictionary in the format:
+    # {vertex index: xyz coordinates, .....}
+
+    activeObj = bpy.context.active_object
+
+    if activeObj.type == 'MESH':
+        
+        vertices_dict = {}
+
+        bm = bmesh.from_edit_mesh(activeObj.data)
+
+        for vert in bm.verts:
+            vertices_dict[vert.index] = list(vert.co)
+        return vertices_dict
+
+    else:
+        print("Object is not a mesh.")
+        return None
+    
+def getAllFacesOfObject():
+    # Gets all faces of the active object. Returns dictionary in the format:
+    # {face index: center median, .....}
+
+    activeObj = bpy.context.active_object
+
+    if activeObj.type == 'MESH':
+        
+        faces_dict = {}
+
+        bm = bmesh.from_edit_mesh(activeObj.data)
+
+        for face in bm.faces:
+            faces_dict[face.index] = list(face.calc_center_median())
+        return faces_dict
+
+    else:
+        print("Object is not a mesh.")
+        return None
+
+def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
+    # objectName = Name of the target object
+    # firstPos = dictionary containing all the selected vertices position before the operation
+    # secondPos = dictionary containing all the selected vertices position after the operation
+    # This function creates spheres to indicate the indices user should be moving
+    
+    highlightType = "normal"
+    firstLen = len(list(firstPos.values()))
+    secondLen = len(list(secondPos.values()))
+    keys = list(firstPos.keys())
+
+    if firstLen < secondLen:
+        # Means addition of new vertices
+        keys = list(secondPos.keys())
+        highlightType = "add"
+    
+    elif firstLen > secondLen:
+        # Means deletion of vertices
+        highlightType = "delete"
+
+    # Setting the objectName as active
+    obj = bpy.data.objects[objectName]
+    bpy.context.view_layer.objects.active = obj
+    objLocation = list(obj.location)
+    activeObj = bpy.context.view_layer.objects.active
+
+    # Getting the mode (OBJECT or EDIT)
+    mode = activeObj.mode
+
+    if mode == "EDIT":
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    if highlightType == "normal":
+        for i, key in enumerate(keys):
+                initialName = str(key) + ": Initial Pos"
+                finalName = str(key) + ": Final Pos"
+                initialLoc = [x + y for x, y in zip(firstPos[key], objLocation)]
+                finalLoc = [x + y for x, y in zip(secondPos[key], objLocation)]
+
+                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=initialLoc, scale=(1, 1, 1))
+                bpy.context.object.show_name = True
+                bpy.context.object.show_in_front = True
+                # bpy.context.object.hide_select = True
+                bpy.context.object.name = initialName
+                
+                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=finalLoc, scale=(1, 1, 1))
+                bpy.context.object.show_name = True
+                bpy.context.object.show_in_front = True
+                # bpy.context.object.hide_select = True
+                bpy.context.object.name = finalName
+        
+    elif highlightType in ["add", "delete"]:
+        # The vertices keys change, so have to compare them by value rather than by key
+
+        differences = findVertsDiff(list(firstPos.values()), list(secondPos.values()), tolerance)
+        suffix = ": Add new vert" if highlightType == "add" else ": Remove this vert"
+
+        for i, difference in enumerate(differences):
+
+            name = str(i) + suffix
+            location = [x + y for x, y in zip(difference, objLocation)]
+
+            bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
+            bpy.context.object.show_name = True
+            bpy.context.object.show_in_front = True
+            bpy.context.object.name = name
+
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.data.objects[objectName].select_set(True)
+
+    bpy.context.view_layer.objects.active = bpy.data.objects[objectName]
+    if mode == "EDIT":
+        bpy.ops.object.mode_set(mode='EDIT')
+
+    global ignoreLastOp
+    ignoreLastOp = True
+    return
+
+def clearHighlights():
+
+    suffix = ["Initial Pos", "Final Pos", "Add new vert", "Remove this vert"]
+
+    for obj in bpy.data.objects:
+    # Check if the object's name ends with the specified suffix
+        if obj.name.endswith(suffix[0]) or obj.name.endswith(suffix[1]) or obj.name.endswith(suffix[2]) or obj.name.endswith(suffix[3]):
+            # Delete the object
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+    return
+
+def withinMargin(val1, val2, margin):
+    # Checks if value 1 is in between margin defined by value 2
+
+    return -np.abs(val2)*margin <= np.abs(val1 -val2) <= np.abs(val2)*margin
+
+def update_user_feedback(new_feedback):
+    "Updates what s shown for the user in the UI"
+
+    bpy.context.scene.user_feedback = new_feedback
+
+    # Redraw the UI to update with new info
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+
+
+def split_text(text, width=40):
+    """Splits the text into chunks of size width"""
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+
+    for word in words:
+        if len(current_line) + len(word) + 1 <= width:
+            if current_line:
+                current_line += " "
+            current_line += word
+        else:
+            lines.append(current_line)
+            current_line = word
+
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+
+# ======================================================================================================================= #
+# ============================================= Mesh Processor ========================================================== #
+# ======================================================================================================================= #
+
+def findVertsDiff(beforeList, afterList, margin):
+    # Given list1 and list2 and a margin (% / 100), returns the differences.
+    # E.g., if list1 contains vertices that are not included in list2: function returns these vertices.
+    # If len(list1) == len(list2), list1 is used as the base of comparison, which means that the return
+    # list contains vertices from list1 that are different than list2
+    
+    differences = []
+    compareFrom = beforeList
+    compareTo = afterList
+    margin = 0.1
+
+    if len(afterList) > len(beforeList):
+        compareFrom = afterList
+        compareTo = beforeList
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$  From To: ", compareFrom, compareTo)
+
+    for elem1 in compareFrom:
+        found = False
+        for elem2 in compareTo:
+            if all(withinMargin(val1, val2, margin) for val1, val2 in zip(elem1, elem2)):
+                found = True
+                break
+        if not found:
+            differences.append(elem1)
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$  DIFERENCAS: ", differences)
+    return differences
+
+def checkMeshSimilarity (meshDict1, meshDict2, margin):
+    # Given 2 dictionaries containing information about vertices and faces of the 2 meshes,
+    # (and considering that the number of vertices and faces are already equal for both),
+    # compare their location considering the given margin.
+
+    vert1 = np.array( list(meshDict1["vertices"].values()) )
+    vert2 = list(meshDict2["vertices"].values())
+    faces1 = np.array( list(meshDict1["faces"].values()) )
+    faces2 = list(meshDict2["faces"].values())
+
+    if len(vert1) != len(vert2) or len(faces1) != len(faces2):
+        return False
+
+    def checkCorrespondence (dict1, dict2, i):
+        # Internal function that receives 2 dictionaries containing vertices/faces
+        # and tries to find a correspondence between all entries of dict1 with all of dict2
+        # considering the margin selected.
+        # Once found, this entry is removed from dict2 since it is a 1-1 correspondence, 
+        # increasing performance.
+        # RETURNS: -1 if no correspondence found (so the mesh is wrong) or modified dict2 if found
+        # correspondence (it deletes the found correspondent) .
+
+        foundI = -1
+        possibleIndices = []
+        possibleValues = []
+        precision = 4 # Number of decimals after point
+
+        for j in range (len(dict2)):
+            if all(np.abs(np.round(dict1[i][k], precision) - np.round(dict2[j][k], precision)) <= margin * abs(dict1[i][k]) for k in range(3)):
+                    # foundI = j
+                    # break  # Stop searching for this vertex in dict2 once a match is found
+
+                    possibleIndices.append(j)
+                    possibleValues.append( np.linalg.norm( np.array(dict1[i]) - np.array(dict2[j])) ) # Distance between the 2 points
+
+        # if foundI >= 0:
+        if len(possibleIndices) > 0:
+            foundI = possibleIndices[np.argmin(possibleValues)]
+            del dict2[foundI]
+            return dict2
+            
+        else:
+            return -1
+            
+    found = True
+
+    # First test vertices correspondence:
+    for i in range (len(vert1)):
+        checked = checkCorrespondence(vert1, vert2, i)
+        
+        if checked == -1:
+            found = False
+            break
+        
+        else:
+            vert2 = checked
+
+    # If fully correspondent, check faces
+    if found:
+        for i in range (len(faces1)):
+            checked = checkCorrespondence(faces1, faces2, i)
+            if checked == -1:
+                found = False
+                break
+            
+            else:
+                faces2 = checked
+
+        
+    print("***************************************")
+    print("Meshes are EQUAL" if found else "Meshes are DIFFERENT")
+    print("***************************************")
+
+    return found
+
+# ======================================================================================================================= #
+# ========================================= Operations Processor ======================================================== #
+# ======================================================================================================================= #
 
 def formatOperation2(operator, isSame):
     # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
@@ -391,128 +752,6 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
     else:
         return True
     
-def getAllObjects(firstCall = False):
-    # Gets all the objects in the scene.
-    # If it is a new object, firstcall == True and thus all its vertices must be considered
-
-    objsDict = {}
-    changedMode = False
-
-    if firstCall:
-        activeObj = bpy.context.view_layer.objects.active
-
-        if activeObj and activeObj.mode == "OBJECT" and activeObj.type == 'MESH':
-            bpy.ops.object.editmode_toggle()
-            changedMode = True
-
-    objs = bpy.context.scene.objects
-    for obj in objs:
-        objsDict[obj.name] = {  "scale": list(obj.scale),
-                                "location": list(obj.location),
-                                "rotation": list(obj.rotation_euler),
-                                "vertices": {} if not firstCall or not activeObj else getAllVerticesOfObject(),
-                                "faces": {} if not firstCall or not activeObj else getAllFacesOfObject(),
-                                "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
-
-    if changedMode:
-        bpy.ops.object.editmode_toggle()
-
-    return objsDict
-
-def getAllModifiers():
-    # Gets all the modifiers of all the objects in the scene. Uses the getAllObjects() function
-
-    objsList = list(getAllObjects().keys())
-    modifiersList = []
-    editMode = False
-
-    if bpy.context.object != None:
-        prevSelectedObj = bpy.context.object.name 
-
-        if(bpy.context.object.mode == 'EDIT'):
-            editMode = True
-            bpy.ops.object.mode_set(mode = "OBJECT")
-    
-    else:
-        prevSelectedObj = None
-
-    for objectName in objsList:
-
-        if objectName in bpy.data.objects:
-            # Deselect all currently selected objects
-            bpy.ops.object.select_all(action='DESELECT')
-
-            # Select the object
-            bpy.data.objects[objectName].select_set(True)
-
-            bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
-
-        else:
-            print(f"Object '{objectName}' not found")
-
-        selected_object = bpy.context.view_layer.objects.active
-
-        if selected_object is not None:
-            # Get all modifiers of the selected object
-            objModifiers = [modifier.name for modifier in selected_object.modifiers]
-            
-            modifiersList += objModifiers
-    
-    if prevSelectedObj is not None:
-
-        # Deselect all currently selected objects
-        bpy.ops.object.select_all(action='DESELECT')
-
-        # Select the object and sets it to be the active one
-        bpy.data.objects[prevSelectedObj].select_set(True)
-        bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
-
-        # If it was in edit mode before, set again it
-        if(editMode):
-            bpy.ops.object.mode_set(mode = "EDIT")
-
-    return modifiersList
-
-def getAllVerticesOfObject():
-    # Gets all Vertices of the active object. Returns dictionary in the format:
-    # {vertex index: xyz coordinates, .....}
-
-    activeObj = bpy.context.active_object
-
-    if activeObj.type == 'MESH':
-        
-        vertices_dict = {}
-
-        bm = bmesh.from_edit_mesh(activeObj.data)
-
-        for vert in bm.verts:
-            vertices_dict[vert.index] = list(vert.co)
-        return vertices_dict
-
-    else:
-        print("Object is not a mesh.")
-        return None
-    
-def getAllFacesOfObject():
-    # Gets all faces of the active object. Returns dictionary in the format:
-    # {face index: center median, .....}
-
-    activeObj = bpy.context.active_object
-
-    if activeObj.type == 'MESH':
-        
-        faces_dict = {}
-
-        bm = bmesh.from_edit_mesh(activeObj.data)
-
-        for face in bm.faces:
-            faces_dict[face.index] = list(face.calc_center_median())
-        return faces_dict
-
-    else:
-        print("Object is not a mesh.")
-        return None
-    
 def getPerformedOperations(mouse_x = 0, mouse_y = 0):
     # Gets the list of performed operations
 
@@ -604,238 +843,6 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
             filtered[prop] = props[prop]
 
     return [translatedOp[0], filtered, translatedOp[2], additionalInfo]
-
-def highlightVertices(objectName, firstPos, secondPos, tolerance = 0.1):
-    # objectName = Name of the target object
-    # firstPos = dictionary containing all the selected vertices position before the operation
-    # secondPos = dictionary containing all the selected vertices position after the operation
-    # This function creates spheres to indicate the indices user should be moving
-    
-    highlightType = "normal"
-    firstLen = len(list(firstPos.values()))
-    secondLen = len(list(secondPos.values()))
-    keys = list(firstPos.keys())
-
-    if firstLen < secondLen:
-        # Means addition of new vertices
-        keys = list(secondPos.keys())
-        highlightType = "add"
-    
-    elif firstLen > secondLen:
-        # Means deletion of vertices
-        highlightType = "delete"
-
-    # Setting the objectName as active
-    obj = bpy.data.objects[objectName]
-    bpy.context.view_layer.objects.active = obj
-    objLocation = list(obj.location)
-    activeObj = bpy.context.view_layer.objects.active
-
-    # Getting the mode (OBJECT or EDIT)
-    mode = activeObj.mode
-
-    if mode == "EDIT":
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-    if highlightType == "normal":
-        for i, key in enumerate(keys):
-                initialName = str(key) + ": Initial Pos"
-                finalName = str(key) + ": Final Pos"
-                initialLoc = [x + y for x, y in zip(firstPos[key], objLocation)]
-                finalLoc = [x + y for x, y in zip(secondPos[key], objLocation)]
-
-                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=initialLoc, scale=(1, 1, 1))
-                bpy.context.object.show_name = True
-                bpy.context.object.show_in_front = True
-                # bpy.context.object.hide_select = True
-                bpy.context.object.name = initialName
-                
-                bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=finalLoc, scale=(1, 1, 1))
-                bpy.context.object.show_name = True
-                bpy.context.object.show_in_front = True
-                # bpy.context.object.hide_select = True
-                bpy.context.object.name = finalName
-        
-    elif highlightType in ["add", "delete"]:
-        # The vertices keys change, so have to compare them by value rather than by key
-
-        differences = findVertsDiff(list(firstPos.values()), list(secondPos.values()), tolerance)
-        suffix = ": Add new vert" if highlightType == "add" else ": Remove this vert"
-
-        for i, difference in enumerate(differences):
-
-            name = str(i) + suffix
-            location = [x + y for x, y in zip(difference, objLocation)]
-
-            bpy.ops.object.empty_add(type='SPHERE', radius=0.03, align='WORLD', location=location, scale=(1, 1, 1))
-            bpy.context.object.show_name = True
-            bpy.context.object.show_in_front = True
-            bpy.context.object.name = name
-
-    bpy.ops.object.select_all(action='DESELECT')
-    bpy.data.objects[objectName].select_set(True)
-
-    bpy.context.view_layer.objects.active = bpy.data.objects[objectName]
-    if mode == "EDIT":
-        bpy.ops.object.mode_set(mode='EDIT')
-
-    global ignoreLastOp
-    ignoreLastOp = True
-    return
-
-def clearHighlights():
-
-    suffix = ["Initial Pos", "Final Pos", "Add new vert", "Remove this vert"]
-
-    for obj in bpy.data.objects:
-    # Check if the object's name ends with the specified suffix
-        if obj.name.endswith(suffix[0]) or obj.name.endswith(suffix[1]) or obj.name.endswith(suffix[2]) or obj.name.endswith(suffix[3]):
-            # Delete the object
-            bpy.data.objects.remove(obj, do_unlink=True)
-
-    return
-
-
-def withinMargin(val1, val2, margin):
-    # Checks if value 1 is in between margin defined by value 2
-
-    return -np.abs(val2)*margin <= np.abs(val1 -val2) <= np.abs(val2)*margin
-
-def findVertsDiff(beforeList, afterList, margin):
-    # Given list1 and list2 and a margin (% / 100), returns the differences.
-    # E.g., if list1 contains vertices that are not included in list2: function returns these vertices.
-    # If len(list1) == len(list2), list1 is used as the base of comparison, which means that the return
-    # list contains vertices from list1 that are different than list2
-    
-    differences = []
-    compareFrom = beforeList
-    compareTo = afterList
-    margin = 0.1
-
-    if len(afterList) > len(beforeList):
-        compareFrom = afterList
-        compareTo = beforeList
-
-    print("$$$$$$$$$$$$$$$$$$$$$$$$  From To: ", compareFrom, compareTo)
-
-    for elem1 in compareFrom:
-        found = False
-        for elem2 in compareTo:
-            if all(withinMargin(val1, val2, margin) for val1, val2 in zip(elem1, elem2)):
-                found = True
-                break
-        if not found:
-            differences.append(elem1)
-
-    print("$$$$$$$$$$$$$$$$$$$$$$$$  DIFERENCAS: ", differences)
-    return differences
-
-def checkMeshSimilarity (meshDict1, meshDict2, margin):
-    # Given 2 dictionaries containing information about vertices and faces of the 2 meshes,
-    # (and considering that the number of vertices and faces are already equal for both),
-    # compare their location considering the given margin.
-
-    vert1 = np.array( list(meshDict1["vertices"].values()) )
-    vert2 = list(meshDict2["vertices"].values())
-    faces1 = np.array( list(meshDict1["faces"].values()) )
-    faces2 = list(meshDict2["faces"].values())
-
-    if len(vert1) != len(vert2) or len(faces1) != len(faces2):
-        return False
-
-    def checkCorrespondence (dict1, dict2, i):
-        # Internal function that receives 2 dictionaries containing vertices/faces
-        # and tries to find a correspondence between all entries of dict1 with all of dict2
-        # considering the margin selected.
-        # Once found, this entry is removed from dict2 since it is a 1-1 correspondence, 
-        # increasing performance.
-        # RETURNS: -1 if no correspondence found (so the mesh is wrong) or modified dict2 if found
-        # correspondence (it deletes the found correspondent) .
-
-        foundI = -1
-        possibleIndices = []
-        possibleValues = []
-        precision = 4 # Number of decimals after point
-
-        for j in range (len(dict2)):
-            if all(np.abs(np.round(dict1[i][k], precision) - np.round(dict2[j][k], precision)) <= margin * abs(dict1[i][k]) for k in range(3)):
-                    # foundI = j
-                    # break  # Stop searching for this vertex in dict2 once a match is found
-
-                    possibleIndices.append(j)
-                    possibleValues.append( np.linalg.norm( np.array(dict1[i]) - np.array(dict2[j])) ) # Distance between the 2 points
-
-        # if foundI >= 0:
-        if len(possibleIndices) > 0:
-            foundI = possibleIndices[np.argmin(possibleValues)]
-            del dict2[foundI]
-            return dict2
-            
-        else:
-            return -1
-            
-    found = True
-
-    # First test vertices correspondence:
-    for i in range (len(vert1)):
-        checked = checkCorrespondence(vert1, vert2, i)
-        
-        if checked == -1:
-            found = False
-            break
-        
-        else:
-            vert2 = checked
-
-    # If fully correspondent, check faces
-    if found:
-        for i in range (len(faces1)):
-            checked = checkCorrespondence(faces1, faces2, i)
-            if checked == -1:
-                found = False
-                break
-            
-            else:
-                faces2 = checked
-
-        
-    print("***************************************")
-    print("Meshes are EQUAL" if found else "Meshes are DIFFERENT")
-    print("***************************************")
-
-    return found
-
-def update_user_feedback(new_feedback):
-    "Updates what s shown for the user in the UI"
-
-    bpy.context.scene.user_feedback = new_feedback
-
-    # Redraw the UI to update with new info
-    for window in bpy.context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.type == 'VIEW_3D':
-                area.tag_redraw()
-
-
-def split_text(text, width=40):
-    """Splits the text into chunks of size width"""
-    words = text.split(' ')
-    lines = []
-    current_line = ""
-
-    for word in words:
-        if len(current_line) + len(word) + 1 <= width:
-            if current_line:
-                current_line += " "
-            current_line += word
-        else:
-            lines.append(current_line)
-            current_line = word
-
-    if current_line:
-        lines.append(current_line)
-
-    return lines
 
 # ======================================================================================================================= #
 # ================================================ Classes ============================================================== #
