@@ -78,12 +78,6 @@ def saveObjectFacesOnCache (facesDict):
     else:
         print("No active object to save the faces on the cache")
 
-def saveTempValueOnCache (tempValue):
-    cacheDict["tempValue"] = tempValue
-
-def getTempValueOnCache():
-    return cacheDict["tempValue"]
-
 def getObjectsOnCache():
     return cacheDict["allObjects"]
 
@@ -1166,7 +1160,7 @@ class ModalOperator(bpy.types.Operator):
     currOperation = None
     tut = None
     tutorialMode = False
-    user = None
+    recommender = None
 
     def modal(self, context, event):
 
@@ -1192,7 +1186,7 @@ class ModalOperator(bpy.types.Operator):
                 if self.tutorialMode:
                     result = self.tut.validateStep(self.currOperation)
                     if (result == ['correct']):
-                        self.user.updateUserProfile(self.currOperation[0], True)
+                        self.recommender.updateUserProfile(self.currOperation[0], True)
                         print("============================ Correct operation!")
                         print("============================ Your progress: ", self.tut.getProgress() * 100, " %")
                         stepDescription = copy.deepcopy(self.tut.getNextStep())
@@ -1205,15 +1199,15 @@ class ModalOperator(bpy.types.Operator):
                         update_user_feedback("Correct operation! Your current progress: " + str(self.tut.getProgress() * 100) + "%. Next step:  Perform the following operation: " + str(stepDescription[0]) + " on object '" + str(stepDescription[-2]) + "'")
 
                     elif(result == ['end']):
-                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.user.getUserDifficulties()) + "    Tutorials recommended: " + str(self.user.makeRecommendation()))
+                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.recommender.getUserDifficulties()) + "    Tutorials recommended: " + str(self.recommender.makeRecommendation()))
                         print("============================ Tutorial Finished!")
-                        print("\n RECOMMENDATIONS: ", self.user.makeRecommendation())
+                        print("\n RECOMMENDATIONS: ", self.recommender.makeRecommendation())
                         stopLogger(reason=1)
                     else:
-                        # self.user.updateUserProfile(self.currOperation[0], False)
+                        # self.recommender.updateUserProfile(self.currOperation[0], False)
                         
                         # Updates user profile based on what shoud've been done
-                        self.user.updateUserProfile(result[2][0], False)
+                        self.recommender.updateUserProfile(result[2][0], False)
                         print("============================ WRONG OPERATION!")
                         print("============================ Expected operation: ", result[2][0])
                         print("============================ Got:                ", result[1][0])
@@ -1251,7 +1245,7 @@ class ModalOperator(bpy.types.Operator):
                 self.tut.loadTutorialSteps(tutFileName)
                 self.tutorialMode = True
 
-                self.user = userModel()
+                self.recommender = recommenderSys()
                 firstStep = self.tut.getNextStep()
                 update_user_feedback("First step:  Perform the following operation: " + str(firstStep[0]) + " on object '" + str(firstStep[-2]) + "'")
 
@@ -1285,7 +1279,7 @@ class ModalOperator(bpy.types.Operator):
             self.report({'WARNING'}, "No active object, could not finish")
             return {'CANCELLED'}
 
-class userModel:
+class recommenderSys:
 
     # Alpha = influence of old user model
     alpha = 1.0
