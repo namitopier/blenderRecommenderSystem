@@ -1550,6 +1550,7 @@ def startLogger(context, tutMode = False, fileName = ""):
         tutorialMode = True
     else:
         tutorialMode = False
+        update_user_feedback("")
     
     useLogger = True
     bpy.ops.object.modal_operator('INVOKE_DEFAULT')
