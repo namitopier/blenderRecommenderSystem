@@ -450,7 +450,21 @@ def checkMeshSimilarity (meshDict1, meshDict2, margin):
 # ======================================================================================================================= #
 
 def formatOperation2(operator, isSame):
-    # Receives an operator (= bpy.context.active_operator) and returns it on the correct format to be used on the tutorial. It can also receive a string in the "isSame" field, indicating it is not an operator
+    '''
+    Receives an operator (= bpy.context.active_operator) and returns it on the correct format (translated) to be used on the tutorial.
+    It also receives a string in the "isSame" field related to an operation/action performed. Depending on its structure, different
+    logic is used to process it.
+
+    - Returns: translated operation always in the format: [name of operation, dictionary with its properties, name of target object].
+
+    - Note: if it is not an operation but a user action, the dictionary will always follow the structure:  {group: property,
+                                                                                                            subgroup: property,
+                                                                                                            propIndex: property,
+                                                                                                            other1: property,
+                                                                                                            ...,
+                                                                                                            otherN: property}
+    
+    '''
 
     activeObj = bpy.context.view_layer.objects.active             
     mode = None if activeObj == None else activeObj.mode 
@@ -709,8 +723,11 @@ def formatOperation2(operator, isSame):
 
     return translated
 
-def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
-    # Receives 2 operations - old (formatted = [operator name, properties]) and new (= bpy.context.active_operator) - and compare them to return if they are the same operation (true or false)
+def isSameOperation(newOp, mouse_x, mouse_y):
+    '''
+    Receives current operation (= bpy.context.active_operator) - and compare it to the last performed to return if they are the same operation.
+    Returns a bool if repeated operation and the operation itself if a new one
+    '''
 
     operations = getPerformedOperations(mouse_x, mouse_y)
     global ignoreLastOp
@@ -753,7 +770,15 @@ def isSameOperation(formattedOldOp, newOp, mouse_x, mouse_y, tut = None):
         return True
     
 def getPerformedOperations(mouse_x = 0, mouse_y = 0):
-    # Gets the list of performed operations
+    '''
+    Gets all the performed operations in the current session from the INFO window in Blender.
+    If just one window or the INFO window not present in the UI, use context override to 
+    replace or create the INFO window, copy all info listed there and then change back to
+    the original config.
+
+    - Returns a list of operations
+    
+    '''
 
     hoveredArea = None
 
@@ -795,9 +820,15 @@ def getPerformedOperations(mouse_x = 0, mouse_y = 0):
     return clipboard.split("\n")[:-1] # Has to exclude the last one since it will be "" 
 
 def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
-    # Filters automatically the important values to track + additional values decided by the user
+    '''
+    Filters automatically the important values to track + additional values decided by the user
+    By default, it will consider all the first 2 props of all nested dicts of the properties.
 
-    # By default, it will consider all the first 2 props of all nested dicts of the properties.
+    - Returns: Filtered translated operation with fixed properties to track + first 2 props of any operation + additional dictionary: 
+    [name of op, filtered dictionary + first 2 props, target object, additional Info dict]
+    
+    '''
+
 
     fixedValues = [ "newVertices",
                     "newFaces",
@@ -817,7 +848,6 @@ def getFilteredOp (translatedOp, additionalInfo = {"tolerance": 10}):
     
     additionalProps = [] if "additionalProps" not in additionalInfo else additionalInfo["additionalProps"]
     ignoreProps = [] if "ignoreProps" not in additionalInfo else additionalInfo["ignoreProps"]
-    tolerance = 0 if "tolerance" not in additionalInfo else additionalInfo["tolerance"]
 
     fixedValues += additionalProps
     fixedValues = [prop for prop in fixedValues if prop not in ignoreProps]
@@ -1180,7 +1210,7 @@ class ModalOperator(bpy.types.Operator):
 
         elif event.type in {'LEFTMOUSE', 'RIGHTMOUSE','TAB', 'RET', 'INBETWEEN_MOUSEMOVE', 'DEL'}:
 
-            isSame = isSameOperation(self.prevOperation, context.active_operator, event.mouse_x, event.mouse_y, self.tut)
+            isSame = isSameOperation(context.active_operator, event.mouse_x, event.mouse_y)
 
             if (type(isSame) != bool):
 
