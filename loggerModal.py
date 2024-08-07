@@ -1237,7 +1237,13 @@ class ModalOperator(bpy.types.Operator):
                         update_user_feedback("Correct operation! Your current progress: " + str(self.tut.getProgress() * 100) + "%. Next step:  Perform the following operation: " + str(stepDescription[0]) + " on object '" + str(stepDescription[-2]) + "'")
 
                     elif(result == ['end']):
-                        update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.recommender.getUserDifficulties()) + "    Tutorials recommended: " + str(self.recommender.makeRecommendation()))
+                        recommendations = self.recommender.makeRecommendation()
+
+                        if recommendations[0] == "" and recommendations[1] == "":
+                            update_user_feedback("Tutorial Completed!. WARNING: The system could not gather enough information to make a recommendation nor identify your difficulties! Please, do more tutorials!")
+                        else:
+                            update_user_feedback("Tutorial Completed! Difficulties identified in the following operations: " + str(self.recommender.getUserDifficulties()) + "    Tutorials recommended: " + str(self.recommender.makeRecommendation()))
+                        
                         print("============================ Tutorial Finished!")
                         print("\n RECOMMENDATIONS: ", self.recommender.makeRecommendation())
                         stopLogger(reason=1)
