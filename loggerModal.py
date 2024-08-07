@@ -22,6 +22,7 @@ import copy
 
 useLogger = False
 logCache = []
+userProfileCache = []
 numberOfOp = 0
 globalLastOp = None
 tutorialMode = False
@@ -1339,14 +1340,24 @@ class recommenderSys:
         # tutorials_path = os.path.join(os.path.dirname(__file__), 'blenderProject') 
         # file_path = os.path.join(tutorials_path, file_name)
 
+        # Get cache of user Profile. If it is set, means that has to load a pre-existent user profile
+        global userProfileCache
+
         file_path = bpy.path.abspath('//termWeights.txt')
 
         # Read the dictionary containing all the calculated weights
         with open(file_path, 'r') as file:
             self.termsDict = json.load(file)
 
-        # User profile length should be equal to the number of terms found in the tutorials
-        self.userProfile = [0] * len(self.termsDict["allTerms"])
+        file.close()
+
+        if len(userProfileCache) != 0:
+            print("############ DEBUG: Found user profile! Loading it: ", userProfileCache)
+            self.userProfile = userProfileCache
+        
+        else:
+            # User profile length should be equal to the number of terms found in the tutorials
+            self.userProfile = [0] * len(self.termsDict["allTerms"])
 
         self.allTerms = self.termsDict["allTerms"]
 
@@ -1375,6 +1386,11 @@ class recommenderSys:
             else:
                 # Means beta should be used
                 self.userProfile = np.add(np.multiply(self.userProfile, self.alpha), np.multiply(update, self.beta))
+            
+            # Updating the cache with the new user profile
+            global userProfileCache
+            userProfileCache = self.userProfile
+
         else:
             print("ERROR! operation name not found as a pre-calculated term!!")
 
@@ -1571,6 +1587,19 @@ def format_list_as_string(my_list):
     result += "]"
     return result
 
+def formatUserProfile(userProf):
+    result = "["
+    lastIndex = len(userProf) - 1
+
+    for i, item in enumerate(userProf):
+        result += repr(item)
+
+        if i < lastIndex:
+            result += ", "
+
+    result += "]"
+    return result
+
 def startLogger(context, tutMode = False, fileName = ""):
     global useLogger
     global tutorialMode
@@ -1579,6 +1608,20 @@ def startLogger(context, tutMode = False, fileName = ""):
     if (tutMode):
         tutFileName = fileName
         tutorialMode = True
+
+        if os.path.exists(bpy.path.abspath('//user_profile.txt')):
+            
+            # Than has to load user profile from txt
+            global userProfileCache
+
+            # Open the file in read mode
+            with open(bpy.path.abspath('//user_profile.txt'), 'r') as file:
+                # Read each line using a loop
+                for line in file:
+                    userProfileCache = [float(value) for value in line.strip()[1:-1].split(",")]
+
+            file.close()
+
     else:
         tutorialMode = False
         update_user_feedback("")
@@ -1589,20 +1632,36 @@ def startLogger(context, tutMode = False, fileName = ""):
 
 def stopLogger(reason = None):
 
+    global tutorialMode
+    global logCache
+    global useLogger
+
     if reason == None:
         update_user_feedback("")
 
-    global logCache
-    file_path = bpy.path.abspath('//logger_log.txt')
+    log_file_path = bpy.path.abspath('//logger_log.txt')
 
-    with open(file_path, 'w') as file:
+    with open(log_file_path, 'w') as file:
         # Convert the list to a string
 
         for action in logCache:
             # Write the string to the file
             file.write(format_list_as_string(action) + '\n')
+    
+    file.close()
 
-    global useLogger
+    if tutorialMode:
+        # Then, before stopping, has to save the user profile to be loaded again if user continue to use the system
+        global userProfileCache
+        userProf_file_path = bpy.path.abspath('//user_profile.txt')
+
+        with open(userProf_file_path, 'w') as file:
+
+            # Convert the list to a string
+            file.write(formatUserProfile(userProfileCache))
+
+        file.close()
+        
     useLogger = False
     print("============================================== LOGGER STOPPED ==============================================")
 
