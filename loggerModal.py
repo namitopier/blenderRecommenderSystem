@@ -88,39 +88,160 @@ def getModifiersOnCache():
 # ======================================================================================================================= #
 # ============================================ Util Functions =========================================================== #
 # ======================================================================================================================= #
+
+def getNewObjectInfo(objName):
+    # Gets all the info of added object (including its vertices)
+    # Returns a dictionary containing the info in the same structure saved in the cache
+
+    editMode = False
+
+    # Save previously selected object
+    if bpy.context.object != None:
+        prevSelectedObj = bpy.context.object.name 
+
+        if(bpy.context.object.mode == 'EDIT'):
+            editMode = True
+            bpy.ops.object.mode_set(mode = "OBJECT")
     
+    else:
+        prevSelectedObj = None
+
+    # Deselect all currently selected objects
+    bpy.ops.object.select_all(action='DESELECT')
+
+    # Select the object
+    bpy.data.objects[objName].select_set(True)
+
+    # Make it the active one
+    bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+    activeObj = bpy.context.view_layer.objects.active
+
+    # Change to edit mode
+    bpy.ops.object.editmode_toggle()
+
+    objDict = { "scale": list(activeObj.scale),
+                "location": list(activeObj.location),
+                "rotation": list(activeObj.rotation_euler),
+                "vertices": {} if activeObj.type != 'MESH' else getAllVerticesOfObject(),
+                "faces": {} if activeObj.type != 'MESH' else getAllFacesOfObject(),
+                "isSmooth": True if (activeObj.type == "MESH" and any(face.use_smooth for face in activeObj.data.polygons)) else False}
+    
+    # Change back to object mode
+    bpy.ops.object.editmode_toggle()
+
+    if prevSelectedObj is not None:
+        # Deselect all currently selected objects
+        bpy.ops.object.select_all(action='DESELECT')
+
+        # Select the object and sets it to be the active one
+        bpy.data.objects[prevSelectedObj].select_set(True)
+        bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+
+        # If it was in edit mode before, set again it
+        if(editMode):
+            bpy.ops.object.mode_set(mode = "EDIT")
+
+    return objDict
+
 def getAllObjects(firstCall = False):
     # Gets all the objects in the scene.
     # If it is a new object, firstcall == True and thus all its vertices must be considered
 
     objsDict = {}
     changedMode = False
+    editMode = False
 
     if firstCall:
-        activeObj = bpy.context.view_layer.objects.active
+        # Save previously selected object
+        if bpy.context.object != None:
+            prevSelectedObj = bpy.context.object.name 
 
-        if activeObj and activeObj.mode == "OBJECT" and activeObj.type == 'MESH':
-            bpy.ops.object.editmode_toggle()
-            changedMode = True
+            if(bpy.context.object.mode == 'EDIT'):
+                editMode = True
+                bpy.ops.object.mode_set(mode = "OBJECT")
+        
+        else:
+            prevSelectedObj = None
 
-    objs = bpy.context.scene.objects
-    for obj in objs:
-        objsDict[obj.name] = {  "scale": list(obj.scale),
-                                "location": list(obj.location),
-                                "rotation": list(obj.rotation_euler),
-                                "vertices": {} if not firstCall or not activeObj else getAllVerticesOfObject(),
-                                "faces": {} if not firstCall or not activeObj else getAllFacesOfObject(),
-                                "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+        objs = bpy.context.scene.objects
+        for obj in objs:
+            
+            objType = obj.type
+            mesh = False
 
-    if changedMode:
-        bpy.ops.object.editmode_toggle()
+            # Deselect all currently selected objects
+            bpy.ops.object.select_all(action='DESELECT')
+
+            # Select the object
+            bpy.data.objects[obj.name].select_set(True)
+
+            # Make it the active one
+            bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+
+            if objType == 'MESH':
+
+                mesh = True
+                # Change to edit mode
+                bpy.ops.object.editmode_toggle()
+
+            objsDict[obj.name] = {  "scale": list(obj.scale),
+                                    "location": list(obj.location),
+                                    "rotation": list(obj.rotation_euler),
+                                    "vertices": {} if obj.type != 'MESH' else getAllVerticesOfObject(),
+                                    "faces": {} if obj.type != 'MESH' else getAllFacesOfObject(),
+                                    "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+            
+            if mesh:
+                # Change to object mode
+                bpy.ops.object.editmode_toggle()
+
+        if prevSelectedObj is not None:
+            # Deselect all currently selected objects
+            bpy.ops.object.select_all(action='DESELECT')
+
+            # Select the object and sets it to be the active one
+            bpy.data.objects[prevSelectedObj].select_set(True)
+            bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+
+            # If it was in edit mode before, set again it
+            if(editMode):
+                bpy.ops.object.mode_set(mode = "EDIT")
+
+    else:
+        objs = bpy.context.scene.objects
+        for obj in objs:
+            objsDict[obj.name] = {  "scale": list(obj.scale),
+                                    "location": list(obj.location),
+                                    "rotation": list(obj.rotation_euler),
+                                    "vertices": {},
+                                    "faces": {},
+                                    "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+
+    # if firstCall:
+    #     activeObj = bpy.context.view_layer.objects.active
+
+    #     if activeObj and activeObj.mode == "OBJECT" and activeObj.type == 'MESH':
+    #         bpy.ops.object.editmode_toggle()
+    #         changedMode = True
+
+    # objs = bpy.context.scene.objects
+    # for obj in objs:
+    #     objsDict[obj.name] = {  "scale": list(obj.scale),
+    #                             "location": list(obj.location),
+    #                             "rotation": list(obj.rotation_euler),
+    #                             "vertices": {} if not firstCall or not activeObj else getAllVerticesOfObject(),
+    #                             "faces": {} if not firstCall or not activeObj else getAllFacesOfObject(),
+    #                             "isSmooth": True if (obj.type == "MESH" and any(face.use_smooth for face in obj.data.polygons)) else False}
+
+    # if changedMode:
+    #     bpy.ops.object.editmode_toggle()
 
     return objsDict
 
-def getAllModifiers():
+def getAllModifiers(firstCall = False):
     # Gets all the modifiers of all the objects in the scene. Uses the getAllObjects() function
 
-    objsList = list(getAllObjects().keys())
+    objsList = list(getAllObjects(firstCall).keys())
     modifiersList = []
     editMode = False
 
@@ -620,7 +741,8 @@ def formatOperation2(operator, isSame):
 
             else:
                 # Means it is adding a new one
-                cacheObjs[activeObj.name] = getAllObjects(firstCall=True)[activeObj.name]
+                # cacheObjs[activeObj.name] = getAllObjects(firstCall=True)[activeObj.name]
+                cacheObjs[activeObj.name] = getNewObjectInfo(activeObj.name)
                 saveObjectsOnCache(cacheObjs)
             
             result["editMode"] = False
@@ -1299,7 +1421,7 @@ class ModalOperator(bpy.types.Operator):
 
             # Fill the cache with the current objects and modifiers on the scene
             objsDict = getAllObjects(firstCall=True)
-            modifiersList = getAllModifiers()
+            modifiersList = getAllModifiers(firstCall=True)
 
             saveModifiersOnCache(modifiersList)
             saveObjectsOnCache(objsDict)
