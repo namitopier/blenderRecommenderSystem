@@ -27,6 +27,8 @@ for i, file_name in enumerate(tut_files):
                "operations": {},
                "weights": []}
 
+    print("Calculating weights for tutorial ", file_name)
+
     with open(file_path, 'r') as file:
         for line in file:
             operationName = eval(line.strip())[0]
