@@ -1,6 +1,0 @@
-['Add Circle', {'radius': 1, 'enter_editmode': False, 'editMode': False}, 'Circle', {'tolerance': 10}]
-['Add Circle', {'action': 'DESELECT', 'editMode': False}, 'Circle', {'tolerance': 10}]
-['Move', {'value': (2, 0, 0), 'orient_axis_ortho': 'X', 'newlocation': [2.0, 0.0, 0.0], 'editMode': False}, 'Circle', {'tolerance': 10}]
-['Duplicate Objects', {'linked': False, 'mode': 'TRANSLATION', 'value': (2, 0, 0), 'orient_axis_ortho': 'X', 'editMode': False}, 'Cube.001', {'tolerance': 10}]
-['Duplicate Objects', {'action': 'DESELECT', 'editMode': False}, 'Cube.001', {'tolerance': 10}]
-[' bpy context space_data params', {'filename': '"TEST.blend"', 'editMode': False}, 'Cube.001', {'tolerance': 10}]

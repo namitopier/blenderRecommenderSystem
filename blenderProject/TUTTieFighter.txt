@@ -1,4 +1,3 @@
-['Delete', {'use_global': False, 'confirm': False, 'editMode': False}, None, {'tolerance': 10}]
 ['Add UV Sphere', {'radius': 1, 'enter_editmode': False, 'editMode': False}, 'Sphere', {'tolerance': 10}]
 ['Add UV Sphere', {'action': 'DESELECT', 'editMode': False}, 'Sphere', {'tolerance': 10}]
 ['Add UV Sphere', {'segments': 16, 'radius': 1, 'editMode': False}, 'Sphere', {'tolerance': 10}]

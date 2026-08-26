@@ -36,3 +36,4 @@
 [' bpy context object modifiers', {'group': 'Bevel', 'segments': '2', 'editMode': False}, 'Cylinder', {'tolerance': 10}]
 [' bpy context object modifiers', {'group': 'Bevel', 'harden_normals': 'True', 'editMode': False}, 'Cylinder', {'tolerance': 10}]
 ['Add Modifier', {'type': 'SUBSURF', 'editMode': False}, 'Cylinder', {'tolerance': 10}]
+['Set Active Modifier', {'modifier': 'Bevel', 'editMode': False}, 'Cylinder', {'tolerance': 10}]
