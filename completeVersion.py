@@ -2,7 +2,7 @@ bl_info = {
     "name": "Blender Recommender System",
     "author": "Pier Luigi Nakai Ricchetti",
     "version": (1, 0),
-    "blender": (3, 2, 2),
+    "blender": (3, 3, 3),
     "location": "View3D > Sidebar > Blender Recommender",
     "description": "Logs user actions",
     "warning": "",
